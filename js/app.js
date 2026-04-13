@@ -646,64 +646,65 @@ const App = {
   },
 
   // ── Admin Page ────────────────────────────────
-  renderAdminPage() {
+  // 등록된 인물 캐시 (부모 선택 드롭다운용)
+  _adminPersons: [],
+
+  async renderAdminPage() {
     document.getElementById('page-container').innerHTML = `
       <div class="page-header">
         <div class="page-header-inner">
           <button onclick="App.navigate('clan')" style="background:none;border:none;cursor:pointer;color:var(--moss);font-size:14px">← 뒤로</button>
-          <div class="page-title">관리자</div>
+          <div class="page-title">인물 등록</div>
           <div></div>
         </div>
       </div>
       <div class="section">
-        <div class="section-title">인물 등록</div>
+        <!-- 안내 배너 -->
+        <div style="background:var(--moss-pale);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--moss);line-height:1.6">
+          <strong>등록 순서:</strong> 7대조(1세) → 6대조(2세) → … → 아버지 → 나<br/>
+          부모를 먼저 등록해야 자녀를 연결할 수 있습니다.
+        </div>
         <div class="card">
+          <!-- 이름 -->
           <div class="form-group">
-            <label class="form-label">성함 (한글) <span class="required">*</span></label>
-            <input type="text" id="p-name" class="form-input" placeholder="예) 홍길동" />
+            <label class="form-label">성함 <span class="required">*</span></label>
+            <div class="form-row">
+              <input type="text" id="p-name" class="form-input" placeholder="한글 (예: 남○○)" />
+              <input type="text" id="p-hanja" class="form-input" placeholder="한자 (선택)" />
+            </div>
           </div>
+          <!-- 세대 -->
           <div class="form-group">
-            <label class="form-label">성함 (한자)</label>
-            <input type="text" id="p-hanja" class="form-input" placeholder="예) 洪吉童" />
+            <label class="form-label">이 분은 몇 세(世)입니까? <span class="required">*</span></label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap" id="gen-buttons">
+              ${[1,2,3,4,5,6,7,8,9,10].map(g => `
+                <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="${g}"
+                  style="min-width:48px">
+                  ${g === 1 ? '1세<br><span style="font-size:9px">7대조</span>' : g+'세'}
+                </button>`).join('')}
+            </div>
+            <input type="hidden" id="p-gen" value="" />
+            <div class="form-hint">7대조=1세, 6대조=2세, … 아버지=본인세수-1, 나=본인세수</div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">성씨</label>
-              <input type="text" id="p-surname" class="form-input" placeholder="홍" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">본관</label>
-              <input type="text" id="p-bongwan" class="form-input" placeholder="안동" />
-            </div>
+          <!-- 부모 선택 -->
+          <div class="form-group" id="parent-group" style="display:none">
+            <label class="form-label">부모 선택 <span style="font-size:11px;color:var(--ink-4)">(위 세대에서 선택)</span></label>
+            <select id="p-parent-select" class="form-select">
+              <option value="">— 부모 선택 —</option>
+            </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">파</label>
-              <input type="text" id="p-pa" class="form-input" placeholder="충무공파" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">세대(世) <span class="required">*</span></label>
-              <input type="number" id="p-gen" class="form-input" placeholder="1=7대조" min="1" />
-            </div>
-          </div>
+          <!-- 생몰년도 -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">출생년도</label>
-              <input type="number" id="p-birth" class="form-input" placeholder="예) 1850" />
+              <input type="number" id="p-birth" class="form-input" placeholder="예) 1940" />
             </div>
             <div class="form-group">
               <label class="form-label">사망년도</label>
-              <input type="number" id="p-death" class="form-input" placeholder="예) 1920" />
+              <input type="number" id="p-death" class="form-input" placeholder="작고 시 입력" />
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">부모 ID</label>
-            <input type="text" id="p-parent" class="form-input" placeholder="부모 인물의 문서 ID (7대조는 비워두세요)" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">루트 조상 ID</label>
-            <input type="text" id="p-root" class="form-input" placeholder="7대조의 문서 ID (7대조 본인은 비워두세요)" />
-          </div>
+          <!-- 추모 정보 -->
           <div class="form-group">
             <label class="form-label">납골당/묘역 위치</label>
             <input type="text" id="p-location" class="form-input" placeholder="예) 추담공원 3구역 A-15" />
@@ -712,69 +713,188 @@ const App = {
             <label class="form-label">기제사일</label>
             <input type="text" id="p-jesa" class="form-input" placeholder="예) 음력 3월 15일" />
           </div>
-          <button class="btn btn-primary mt-8" id="btn-add-person">인물 등록</button>
+          <button class="btn btn-primary mt-8" id="btn-add-person">등록하기</button>
           <div id="admin-result" class="text-center mt-12" style="font-size:13px;display:none"></div>
         </div>
       </div>
       <div class="section">
-        <div class="section-title">등록된 인물 목록</div>
+        <div class="section-title">등록된 인물 목록
+          <button class="btn btn-sm btn-secondary" onclick="App.loadAdminList()" style="margin-left:8px;font-size:11px">새로고침</button>
+        </div>
         <div id="admin-person-list">
           <div class="text-muted text-center" style="padding:20px 0">불러오는 중...</div>
         </div>
       </div>
     `;
-    document.getElementById('btn-add-person').addEventListener('click', async () => {
-      const data = {
-        name: document.getElementById('p-name').value.trim(),
-        hanja: document.getElementById('p-hanja').value.trim(),
-        surname: document.getElementById('p-surname').value.trim(),
-        bongwan: document.getElementById('p-bongwan').value.trim(),
-        pa: document.getElementById('p-pa').value.trim(),
-        generation: parseInt(document.getElementById('p-gen').value) || null,
-        birthYear: parseInt(document.getElementById('p-birth').value) || null,
-        deathYear: parseInt(document.getElementById('p-death').value) || null,
-        parentId: document.getElementById('p-parent').value.trim() || null,
-        rootAncestorId: document.getElementById('p-root').value.trim() || null,
-        memorialLocation: document.getElementById('p-location').value.trim(),
-        jesaDate: document.getElementById('p-jesa').value.trim()
-      };
-      if (!data.name || !data.generation) {
-        document.getElementById('admin-result').style.display = 'block';
-        document.getElementById('admin-result').style.color = 'var(--rust)';
-        document.getElementById('admin-result').textContent = '성함과 세대는 필수입니다.';
-        return;
-      }
-      try {
-        const id = await DB.savePerson(data);
-        const el = document.getElementById('admin-result');
-        el.style.display = 'block';
-        el.style.color = 'var(--moss)';
-        el.textContent = `✅ 등록 완료! ID: ${id}`;
-        this.loadAdminList();
-      } catch (e) {
-        document.getElementById('admin-result').style.display = 'block';
-        document.getElementById('admin-result').style.color = 'var(--rust)';
-        document.getElementById('admin-result').textContent = '오류: ' + e.message;
-      }
+
+    // 세대 버튼 클릭
+    document.querySelectorAll('.gen-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll('.gen-btn').forEach(b => {
+          b.style.background = '';
+          b.style.color = '';
+          b.style.borderColor = '';
+        });
+        btn.style.background = 'var(--moss)';
+        btn.style.color = 'var(--paper)';
+        btn.style.borderColor = 'var(--moss)';
+        const gen = parseInt(btn.dataset.gen);
+        document.getElementById('p-gen').value = gen;
+
+        // 1세(7대조)면 부모 선택 숨김, 나머지는 표시
+        const parentGroup = document.getElementById('parent-group');
+        if (gen === 1) {
+          parentGroup.style.display = 'none';
+        } else {
+          parentGroup.style.display = 'block';
+          await this.loadParentOptions(gen - 1);
+        }
+      });
     });
-    this.loadAdminList();
+
+    // 등록 버튼
+    document.getElementById('btn-add-person').addEventListener('click', () => this.submitAdminPerson());
+    await this.loadAdminList();
+  },
+
+  async loadParentOptions(parentGen) {
+    const select = document.getElementById('p-parent-select');
+    select.innerHTML = '<option value="">— 부모 선택 —</option>';
+    const candidates = this._adminPersons.filter(p => p.generation === parentGen);
+    if (!candidates.length) {
+      select.innerHTML = `<option value="">⚠️ ${parentGen}세 인물이 없습니다. 먼저 등록하세요.</option>`;
+      return;
+    }
+    candidates.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.generation}세)`;
+      select.appendChild(opt);
+    });
+  },
+
+  async submitAdminPerson() {
+    const name = document.getElementById('p-name').value.trim();
+    const gen = parseInt(document.getElementById('p-gen').value);
+    const resultEl = document.getElementById('admin-result');
+
+    if (!name) { this._adminMsg('성함을 입력해 주세요.', false); return; }
+    if (!gen)  { this._adminMsg('세대(世) 버튼을 선택해 주세요.', false); return; }
+
+    const parentId = gen > 1
+      ? (document.getElementById('p-parent-select')?.value || null)
+      : null;
+
+    // 루트 조상 ID 자동 계산
+    let rootAncestorId = null;
+    if (gen === 1) {
+      rootAncestorId = null; // 저장 후 자기 ID로 업데이트
+    } else if (parentId) {
+      const parent = this._adminPersons.find(p => p.id === parentId);
+      rootAncestorId = parent?.rootAncestorId || null;
+    }
+
+    const data = {
+      name,
+      hanja: document.getElementById('p-hanja').value.trim(),
+      surname: this.userProfile?.name?.slice(0,1) || '',
+      bongwan: this.userProfile?.bongwan || '',
+      pa: this.userProfile?.pa || '',
+      generation: gen,
+      birthYear: parseInt(document.getElementById('p-birth').value) || null,
+      deathYear: parseInt(document.getElementById('p-death').value) || null,
+      parentId: parentId || null,
+      rootAncestorId,
+      memorialLocation: document.getElementById('p-location').value.trim(),
+      jesaDate: document.getElementById('p-jesa').value.trim(),
+      addedByUid: Auth.getUid()
+    };
+
+    const btn = document.getElementById('btn-add-person');
+    btn.textContent = '저장 중...'; btn.disabled = true;
+
+    try {
+      const id = await DB.savePerson(data);
+
+      // 7대조이면 자기 자신을 루트로 설정
+      if (gen === 1) {
+        await DB.updatePerson(id, { rootAncestorId: id });
+      }
+
+      this._adminMsg(`✅ ${name} 등록 완료!`, true);
+
+      // 입력 초기화
+      document.getElementById('p-name').value = '';
+      document.getElementById('p-hanja').value = '';
+      document.getElementById('p-birth').value = '';
+      document.getElementById('p-death').value = '';
+      document.getElementById('p-location').value = '';
+      document.getElementById('p-jesa').value = '';
+
+      await this.loadAdminList();
+    } catch (e) {
+      this._adminMsg('오류: ' + e.message, false);
+    } finally {
+      btn.textContent = '등록하기'; btn.disabled = false;
+    }
+  },
+
+  _adminMsg(msg, success) {
+    const el = document.getElementById('admin-result');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = success ? 'var(--moss)' : 'var(--rust)';
+    el.textContent = msg;
   },
 
   async loadAdminList() {
     const el = document.getElementById('admin-person-list');
     if (!el) return;
-    const persons = await DB.getAllPersons(50);
-    if (!persons.length) { el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">등록된 인물 없음</div>'; return; }
-    el.innerHTML = persons.map(p => `
-      <div class="person-item">
-        <div class="person-avatar deceased">${(p.name || '?')[0]}</div>
-        <div style="flex:1">
-          <div class="person-name">${p.name}</div>
-          <div class="person-meta">${p.generation}세 · ID: <code style="font-size:10px;background:var(--paper-2);padding:1px 4px;border-radius:3px">${p.id}</code></div>
-          ${p.parentId ? `<div class="person-meta">부모: ${p.parentId.slice(0,8)}...</div>` : ''}
+    this._adminPersons = await DB.getAllPersons(100);
+    if (!this._adminPersons.length) {
+      el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">등록된 인물 없음</div>';
+      return;
+    }
+    // 세대별 그룹
+    const byGen = {};
+    this._adminPersons.forEach(p => {
+      const g = p.generation || 0;
+      if (!byGen[g]) byGen[g] = [];
+      byGen[g].push(p);
+    });
+    const gens = Object.keys(byGen).map(Number).sort((a,b) => a-b);
+    el.innerHTML = gens.map(g => `
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--ink-4);margin-bottom:6px;padding-left:2px">
+          ${g}세 ${g===1?'(7대조)':g===2?'(6대조)':''}
         </div>
+        ${byGen[g].map(p => `
+          <div class="person-item" style="padding:10px 0">
+            <div class="person-avatar ${p.deathYear?'deceased':''}" style="width:36px;height:36px;font-size:14px">${(p.name||'?')[0]}</div>
+            <div style="flex:1">
+              <div style="font-family:var(--font-serif);font-size:14px;font-weight:500">${p.name}</div>
+              <div class="person-meta">
+                ${p.birthYear||'?'}~${p.deathYear||'생존'}
+                ${p.rootAncestorId ? ' · 연결됨 ✅' : ' · <span style="color:var(--rust)">미연결</span>'}
+              </div>
+            </div>
+            <button class="btn btn-sm" style="font-size:11px;color:var(--rust);background:none;border:none;padding:4px 8px"
+              onclick="App.deletePerson('${p.id}','${p.name}')">삭제</button>
+          </div>
+        `).join('')}
       </div>
     `).join('');
+  },
+
+  async deletePerson(id, name) {
+    if (!confirm(`"${name}" 을(를) 삭제하시겠습니까?`)) return;
+    try {
+      await db.collection('persons').doc(id).delete();
+      this.showToast(`${name} 삭제 완료`);
+      await this.loadAdminList();
+    } catch(e) {
+      this.showToast('삭제 실패: ' + e.message);
+    }
   },
 
   // ── Ancestor Setup ────────────────────────────
