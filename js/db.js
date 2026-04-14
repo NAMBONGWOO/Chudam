@@ -1,8 +1,6 @@
 // ── Database Module ─────────────────────────────
-// Firestore 컬렉션 구조:
-// /users/{uid}           → 사용자 프로필
-// /persons/{id}          → 가문 인물 데이터
-// /mergeRequests/{id}    → 가계도 연결 요청
+// orderBy + where 복합 쿼리는 Firestore 인덱스 필요
+// → orderBy 제거하고 클라이언트에서 정렬하는 방식으로 통일
 
 const DB = {
 
@@ -21,10 +19,10 @@ const DB = {
   },
 
   async updateUserProfile(uid, data) {
-    await db.collection('users').doc(uid).update({
+    await db.collection('users').doc(uid).set({
       ...data,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    }, { merge: true });
   },
 
   // ── Persons (가문 인물) ──────────────────────
@@ -38,7 +36,7 @@ const DB = {
   },
 
   async updatePerson(id, data) {
-    await db.collection('persons').doc(id).update(data);
+    await db.collection('persons').doc(id).set(data, { merge: true });
   },
 
   async getPerson(id) {
@@ -46,42 +44,42 @@ const DB = {
     return doc.exists ? { id: doc.id, ...doc.data() } : null;
   },
 
-  // 7대조 기준으로 가문 전체 인물 조회
-  async getPersonsByAncestorId(ancestorId) {
-    const snap = await db.collection('persons')
-      .where('rootAncestorId', '==', ancestorId)
-      .orderBy('generation', 'asc')
-      .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // 전체 persons 가져온 뒤 클라이언트 정렬 (인덱스 불필요)
+  async getAllPersons(limit = 200) {
+    const snap = await db.collection('persons').limit(limit).get();
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return list.sort((a, b) => (a.generation || 0) - (b.generation || 0));
   },
 
-  // rootAncestorId 기준 전체 인물 조회 (tree 렌더용)
+  // rootAncestorId 기준 전체 인물 (트리 렌더용)
   async getPersonsByRootId(rootId) {
     const snap = await db.collection('persons')
       .where('rootAncestorId', '==', rootId)
-      .orderBy('generation', 'asc')
       .get();
     const persons = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    // 루트 본인도 포함
     const root = await this.getPerson(rootId);
     if (root && !persons.find(p => p.id === rootId)) persons.unshift(root);
-    return persons;
+    return persons.sort((a, b) => (a.generation || 0) - (b.generation || 0));
   },
 
-  // 직접 입력한 7대조 조상 찾기 (매칭용)
-  async findAncestorByInfo(surname, bongwan, pa, name) {
+  // 7대조(generation=1) 인물만
+  async getRootAncestors() {
     const snap = await db.collection('persons')
       .where('generation', '==', 1)
-      .where('surname', '==', surname)
-      .where('bongwan', '==', bongwan)
-      .where('pa', '==', pa)
-      .where('name', '==', name)
-      .limit(5)
       .get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
-  // 나의 직계 조상 가져오기
+  // 자녀 목록
+  async getChildren(personId) {
+    const snap = await db.collection('persons')
+      .where('parentId', '==', personId)
+      .get();
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return list.sort((a, b) => (a.birthYear || 0) - (b.birthYear || 0));
+  },
+
+  // 나의 직계 조상 체인
   async getMyLineage(personId) {
     const results = [];
     let currentId = personId;
@@ -94,21 +92,27 @@ const DB = {
     return results;
   },
 
-  // 자녀 목록 가져오기
-  async getChildren(personId) {
+  // 7대조 매칭용 검색
+  async findAncestorByInfo(surname, bongwan, pa, name) {
     const snap = await db.collection('persons')
-      .where('parentId', '==', personId)
-      .orderBy('birthYear', 'asc')
+      .where('generation', '==', 1)
       .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(p =>
+        p.surname === surname &&
+        p.bongwan === bongwan &&
+        p.pa === pa &&
+        p.name === name
+      );
   },
 
-  // ── Merge Requests (연결 요청) ───────────────
+  // ── Merge Requests ───────────────────────────
 
   async sendMergeRequest(fromUid, toUid, fromPersonId, toPersonId, commonAncestorId) {
     const ref = await db.collection('mergeRequests').add({
       fromUid, toUid, fromPersonId, toPersonId, commonAncestorId,
-      status: 'pending',  // pending / accepted / rejected
+      status: 'pending',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     return ref.id;
@@ -117,31 +121,14 @@ const DB = {
   async getMergeRequests(uid) {
     const snap = await db.collection('mergeRequests')
       .where('toUid', '==', uid)
-      .where('status', '==', 'pending')
-      .orderBy('createdAt', 'desc')
       .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(d => d.status === 'pending')
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   },
 
   async updateMergeRequest(requestId, status) {
     await db.collection('mergeRequests').doc(requestId).update({ status });
-  },
-
-  // ── Admin: 전체 인물 목록 ─────────────────────
-
-  async getAllPersons(limit = 100) {
-    const snap = await db.collection('persons')
-      .orderBy('generation', 'asc')
-      .limit(limit)
-      .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  },
-
-  // 7대조 뿌리 인물만 조회
-  async getRootAncestors() {
-    const snap = await db.collection('persons')
-      .where('generation', '==', 1)
-      .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
 };
