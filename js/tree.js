@@ -366,14 +366,23 @@ const Tree = {
     });
 
     // 상단 컨트롤 바
+    // 컨트롤 바를 가계도 컨테이너 바깥 위에 고정
+    const treeWrap = container.parentElement;
+    // 기존 컨트롤 바 제거
+    const existingCtrl = treeWrap?.querySelector('.tree-ctrl-bar');
+    if (existingCtrl) existingCtrl.remove();
+
     const ctrlBar = document.createElement('div');
-    ctrlBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;';
+    ctrlBar.className = 'tree-ctrl-bar';
+    ctrlBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:var(--paper);border-bottom:0.5px solid var(--border);position:sticky;top:0;z-index:10;';
     ctrlBar.innerHTML = '<span style="font-size:11px;color:var(--ink-4)">'
-      + (this.showLineageOnly ? '직계만 표시 중' : '전체 가계도') + '</span>'
+      + (this.showLineageOnly ? '직계 모드' : '방계 모드') + '</span>'
       + '<div style="display:flex;gap:6px">'
       + (this.collapsed.size > 0 ? '<button id="tree-expand-all" style="font-size:11px;padding:4px 10px;background:var(--paper);border:0.5px solid var(--border-strong);border-radius:20px;color:var(--ink-3);cursor:pointer;font-family:var(--font-sans)">모두 펼치기</button>' : '')
-      + '<button id="tree-toggle-btn" style="font-size:11px;padding:4px 12px;background:var(--paper);border:0.5px solid var(--border-strong);border-radius:20px;color:var(--moss);cursor:pointer;font-family:var(--font-sans)">'
-      + (this.showLineageOnly ? '방계 펼치기' : '직계만 보기') + '</button>'
+      + '<button id="tree-toggle-btn" style="font-size:11px;padding:4px 12px;background:'
+      + (this.showLineageOnly ? 'var(--moss);color:var(--paper)' : 'var(--paper);color:var(--moss)')
+      + ';border:0.5px solid var(--moss);border-radius:20px;cursor:pointer;font-family:var(--font-sans)">'
+      + (this.showLineageOnly ? '방계 모드' : '직계 모드') + '</button>'
       + '</div>';
 
     container.innerHTML = '';

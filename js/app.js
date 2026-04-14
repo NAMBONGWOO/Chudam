@@ -37,6 +37,8 @@ const App = {
       this.renderAuth();
       return;
     }
+    // 현재 페이지 저장 (새로고침 복원용)
+    sessionStorage.setItem('lastPage', page);
     switch (page) {
       case 'memorial': this.renderMemorial(); break;
       case 'home':     this.renderHome(); break;
@@ -46,13 +48,14 @@ const App = {
 
   onLogin(user) {
     this.loadUserData(user.uid).then(() => {
-      // personId가 없거나 문자열 'null'이면 연결 화면으로
       const pid = this.userProfile?.personId;
       if (!pid || pid === 'null' || pid === '') {
         this.renderLinkToTree();
-      } else {
-        this.navigate('memorial');
+        return;
       }
+      // 새로고침 시 마지막 페이지 복원
+      const lastPage = sessionStorage.getItem('lastPage') || 'memorial';
+      this.navigate(lastPage);
     });
   },
 
@@ -587,19 +590,14 @@ const App = {
       </div>
       <div id="match-alert-area" style="padding:12px 20px 0"></div>
 
-      <!-- 나의 위치 카드 -->
-      <div style="padding:12px 20px 0">
-        <div class="card" style="display:flex;align-items:center;gap:14px;padding:14px 16px">
-          <div class="person-avatar" style="width:48px;height:48px;font-size:20px">${(p?.name||'나')[0]}</div>
-          <div style="flex:1">
-            <div style="font-family:var(--font-serif);font-size:17px;font-weight:500">${p?.name || '—'}</div>
-            <div class="text-muted" style="font-size:12px;margin-top:2px">${p?.bongwan||''} · ${p?.pa||''}</div>
-          </div>
-          <div style="text-align:center">
-            <div class="gen-badge">${selfGen}세</div>
-            <div style="font-size:10px;color:var(--ink-4);margin-top:3px">${p?.daeson||selfGen-1}대손</div>
-          </div>
+      <!-- 나의 위치 - 간소화 -->
+      <div style="padding:8px 16px 0;display:flex;align-items:center;gap:10px">
+        <div class="person-avatar" style="width:34px;height:34px;font-size:14px;flex-shrink:0">${(p?.name||'나')[0]}</div>
+        <div style="flex:1;min-width:0">
+          <span style="font-family:var(--font-serif);font-size:14px;font-weight:500">${p?.name||'—'}</span>
+          <span style="font-size:12px;color:var(--ink-3);margin-left:6px">${p?.bongwan||''}</span>
         </div>
+        <span class="gen-badge" style="flex-shrink:0">${selfGen}세</span>
       </div>
 
       <!-- 가계도 영역 -->
@@ -608,7 +606,7 @@ const App = {
           가계도
           <span style="font-size:11px;color:var(--ink-4);font-weight:400;margin-left:4px">회색 노드를 눌러 정보를 추가하세요</span>
         </div>
-        <div id="tree-wrap" style="background:var(--paper-2);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:auto;height:56dvh;position:relative;cursor:grab">
+        <div id="tree-wrap" style="background:var(--paper-2);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:auto;height:64dvh;position:relative;cursor:grab">
           <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-4)">
             <div class="text-center">
               <div style="font-size:28px;margin-bottom:8px">🌲</div>
@@ -1276,11 +1274,18 @@ const App = {
           <div class="form-group">
             <label class="form-label">이 분은 몇 세(世)입니까? <span class="required">*</span></label>
             <div style="display:flex;gap:8px;flex-wrap:wrap" id="gen-buttons">
-                \${[1,2,3,4,5,6,7,8,9,10].map(function(g){
-                return '<button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="'+g+'" style="min-width:48px">'
-                  + (g === 1 ? '1세<br><span style="font-size:9px">7대조</span>' : g+'세')
-                  + '</button>';
-              }).join('')}
+                <div id="gen-buttons-static">
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="1" style="min-width:56px">1세<br/><span style="font-size:9px">7대조</span></button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="2" style="min-width:48px">2세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="3" style="min-width:48px">3세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="4" style="min-width:48px">4세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="5" style="min-width:48px">5세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="6" style="min-width:48px">6세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="7" style="min-width:48px">7세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="8" style="min-width:48px">8세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="9" style="min-width:48px">9세</button>
+              <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="10" style="min-width:48px">10세</button>
+            </div
             </div>
             <input type="hidden" id="p-gen" value="" />
             <div class="form-hint">7대조=1세, 6대조=2세, … 아버지=본인세수-1, 나=본인세수</div>
