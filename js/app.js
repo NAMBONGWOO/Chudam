@@ -46,8 +46,9 @@ const App = {
 
   onLogin(user) {
     this.loadUserData(user.uid).then(() => {
-      // personId가 없으면 가계도 연결 화면으로
-      if (!this.userProfile?.personId) {
+      // personId가 없거나 문자열 'null'이면 연결 화면으로
+      const pid = this.userProfile?.personId;
+      if (!pid || pid === 'null' || pid === '') {
         this.renderLinkToTree();
       } else {
         this.navigate('memorial');
