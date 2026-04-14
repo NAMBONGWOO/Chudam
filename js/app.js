@@ -44,7 +44,12 @@ const App = {
 
   onLogin(user) {
     this.loadUserData(user.uid).then(() => {
-      this.navigate('memorial');
+      // personId가 없으면 가계도 연결 화면으로
+      if (!this.userProfile?.personId) {
+        this.renderLinkToTree();
+      } else {
+        this.navigate('memorial');
+      }
     });
   },
 
@@ -240,7 +245,187 @@ const App = {
     if (el) { el.textContent = msg; el.style.display = 'block'; }
   },
 
-  // ── Home (가계도) ──────────────────────────────
+  // ── 가계도 자동 연결 화면 (부모 이름 매칭) ──────
+  async renderLinkToTree() {
+    const el = document.getElementById('page-container');
+    const name = this.userProfile?.name || '';
+    el.innerHTML = `
+      <div style="min-height:100dvh;background:var(--paper);display:flex;flex-direction:column">
+        <div style="background:var(--moss);padding:36px 24px 28px;text-align:center">
+          <div style="font-family:var(--font-serif);font-size:13px;color:rgba(248,245,239,0.55);letter-spacing:0.06em;margin-bottom:8px">추담공원</div>
+          <div style="font-family:var(--font-serif);font-size:22px;color:var(--gold-light)">${name}님, 환영합니다</div>
+          <div style="font-size:13px;color:rgba(248,245,239,0.6);margin-top:8px;line-height:1.6">아버지 성함을 입력하시면<br/>가계도에 자동으로 연결해 드립니다</div>
+        </div>
+
+        <div style="padding:24px 20px;flex:1">
+          <div class="form-group">
+            <label class="form-label">아버지 성함 <span class="required">*</span></label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="parent-name-input" class="form-input" placeholder="예) 남○○" style="flex:1" />
+              <button id="btn-search-parent" class="btn btn-primary" style="width:72px;border-radius:var(--radius-lg);flex-shrink:0">찾기</button>
+            </div>
+            <div class="form-hint">등록된 인물 중에서 검색합니다</div>
+          </div>
+
+          <div id="parent-search-result" style="margin-top:8px"></div>
+
+          <div style="margin-top:32px;padding-top:20px;border-top:0.5px solid var(--border);text-align:center">
+            <div style="font-size:12px;color:var(--ink-4);margin-bottom:10px">아버지가 아직 등록되지 않으셨나요?</div>
+            <button onclick="App.skipLinkToTree()" class="btn btn-secondary btn-sm">나중에 연결하기</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const doSearch = async () => {
+      const query = document.getElementById('parent-name-input').value.trim();
+      if (!query) { App.showToast('아버지 성함을 입력해 주세요'); return; }
+      const btn = document.getElementById('btn-search-parent');
+      btn.textContent = '검색 중...'; btn.disabled = true;
+      await App.searchParentByName(query);
+      btn.textContent = '찾기'; btn.disabled = false;
+    };
+
+    document.getElementById('btn-search-parent').addEventListener('click', doSearch);
+    document.getElementById('parent-name-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+  },
+
+  async searchParentByName(query) {
+    const resultEl = document.getElementById('parent-search-result');
+    if (!resultEl) return;
+
+    resultEl.innerHTML = '<div class="text-muted text-center" style="padding:16px 0">검색 중...</div>';
+
+    try {
+      const allPersons = await DB.getAllPersons(200);
+      const matches = allPersons.filter(p =>
+        (p.name || '').includes(query) || (p.hanja || '').includes(query)
+      );
+
+      if (!matches.length) {
+        resultEl.innerHTML = `
+          <div style="background:var(--rust-pale);border-radius:var(--radius-lg);padding:16px;text-align:center">
+            <div style="font-size:14px;color:var(--rust);font-family:var(--font-serif)">"${query}"</div>
+            <div style="font-size:12px;color:var(--ink-3);margin-top:6px">등록된 인물을 찾지 못했습니다.<br/>관리자에게 먼저 등록을 요청해 주세요.</div>
+          </div>`;
+        return;
+      }
+
+      resultEl.innerHTML = '<div style="font-size:12px;color:var(--ink-3);margin-bottom:10px">'
+        + matches.length + '명을 찾았습니다. 아버지를 선택해 주세요.</div>'
+        + matches.map(p => {
+            const genLabel = p.generation === 1 ? '7대조' : p.generation + '세';
+            const yr = p.birthYear ? p.birthYear + '년생' : '';
+            const deathMark = p.deathYear ? ' · 작고' : '';
+            return '<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;'
+              + 'border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;'
+              + 'cursor:pointer;transition:all 0.15s;background:var(--paper)" '
+              + 'onclick="App.confirmParentLink('' + p.id + '','' + (p.name||'').replace(/'/g,"\'") + '',' + p.generation + ')" '
+              + 'onmouseover="this.style.background='var(--paper-2)';this.style.borderColor='var(--moss)'" '
+              + 'onmouseout="this.style.background='var(--paper)';this.style.borderColor='var(--border)'">'
+              + '<div class="person-avatar" style="width:44px;height:44px;font-size:18px;'
+              + (p.deathYear ? 'background:var(--paper-3);color:var(--ink-3)' : 'background:var(--moss-pale);color:var(--moss)') + '">'
+              + ((p.name||'?')[0]) + '</div>'
+              + '<div style="flex:1">'
+              + '<div style="font-family:var(--font-serif);font-size:16px;font-weight:500">' + (p.name||'미상') + '</div>'
+              + '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">' + genLabel + (yr?' · '+yr:'') + deathMark + '</div>'
+              + '</div>'
+              + '<div style="font-size:22px;color:var(--moss)">›</div>'
+              + '</div>';
+          }).join('');
+    } catch(e) {
+      resultEl.innerHTML = '<div class="text-muted text-center" style="padding:16px 0">오류가 발생했습니다: ' + e.message + '</div>';
+    }
+  },
+
+  async confirmParentLink(parentId, parentName, parentGen) {
+    const myName = this.userProfile?.name || '나';
+    const myGen = parentGen + 1;
+
+    // 확인 팝업
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.className = 'bottom-sheet';
+    modal.innerHTML = '<div class="bottom-sheet-handle"></div>'
+      + '<div style="text-align:center;padding:8px 0 20px">'
+      + '<div style="font-size:13px;color:var(--ink-3);margin-bottom:16px">이렇게 연결하시겠습니까?</div>'
+      + '<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:20px">'
+      + '<div style="text-align:center">'
+      + '<div class="person-avatar" style="width:52px;height:52px;font-size:20px;background:var(--paper-3);color:var(--ink-3);margin:0 auto 6px">' + parentName[0] + '</div>'
+      + '<div style="font-family:var(--font-serif);font-size:14px">' + parentName + '</div>'
+      + '<div style="font-size:11px;color:var(--ink-4)">' + parentGen + '세 · 아버지</div>'
+      + '</div>'
+      + '<div style="font-size:24px;color:var(--border-strong)">↓</div>'
+      + '<div style="text-align:center">'
+      + '<div class="person-avatar" style="width:52px;height:52px;font-size:20px;background:var(--moss);color:var(--paper);margin:0 auto 6px">' + myName[0] + '</div>'
+      + '<div style="font-family:var(--font-serif);font-size:14px">' + myName + '</div>'
+      + '<div style="font-size:11px;color:var(--ink-4)">' + myGen + '세 · 나</div>'
+      + '</div></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px">'
+      + '<button id="link-cancel" class="btn btn-secondary" style="flex:1">취소</button>'
+      + '<button id="link-confirm" class="btn btn-primary" style="flex:2;border-radius:var(--radius-lg)">연결하기</button>'
+      + '</div>';
+
+    document.body.appendChild(modal);
+    overlay.classList.add('active');
+    setTimeout(() => modal.classList.add('open'), 10);
+
+    const close = () => {
+      modal.classList.remove('open');
+      overlay.classList.remove('active');
+      setTimeout(() => { modal.remove(); overlay.remove(); }, 350);
+    };
+
+    overlay.addEventListener('click', close);
+    document.getElementById('link-cancel').addEventListener('click', close);
+    document.getElementById('link-confirm').addEventListener('click', async () => {
+      const btn = document.getElementById('link-confirm');
+      btn.textContent = '연결 중...'; btn.disabled = true;
+      try {
+        // 1) persons에 나를 등록 (아버지의 자녀로)
+        const allPersons = await DB.getAllPersons(200);
+        const parent = allPersons.find(p => p.id === parentId);
+        const rootAncestorId = parent?.rootAncestorId || parentId;
+
+        const personId = await DB.savePerson({
+          name: this.userProfile.name,
+          generation: myGen,
+          birthYear: this.userProfile.birthYear || null,
+          parentId,
+          rootAncestorId,
+          bongwan: this.userProfile.bongwan || '의령',
+          pa: this.userProfile.pa || '사천백파',
+          addedByUid: Auth.getUid(),
+          linkedUid: Auth.getUid()
+        });
+
+        // 2) userProfile에 personId 연결
+        await DB.updateUserProfile(Auth.getUid(), { personId, saesu: myGen, daeson: myGen - 1 });
+        this.userProfile.personId = personId;
+        this.userProfile.saesu = myGen;
+
+        close();
+        this.showToast('"' + parentName + '"의 자녀로 연결 완료!');
+        setTimeout(() => this.navigate('memorial'), 800);
+      } catch(e) {
+        this.showToast('연결 실패: ' + e.message);
+        btn.textContent = '연결하기'; btn.disabled = false;
+      }
+    });
+  },
+
+  skipLinkToTree() {
+    this.navigate('memorial');
+  },
+
+  
+    // ── Home (가계도) ──────────────────────────────
   async renderHome() {
     const p = this.userProfile;
     const selfGen = p?.saesu || 8; // 기본 8세대
@@ -658,7 +843,7 @@ const App = {
             <div class="page-title">문중 관리</div>
             <div class="page-subtitle">기점 조상 · 행사 · 공지</div>
           </div>
-          ${this.userProfile?.role === 'admin' ? `<button class="btn btn-sm btn-secondary" onclick="App.renderAdminPage()">관리자 메뉴</button>` : ''}
+
         </div>
       </div>
       <div class="section">
@@ -766,6 +951,11 @@ const App = {
             <div style="flex:1;font-size:14px">개인정보 수정</div>
             <div style="color:var(--ink-4)">›</div>
           </div>
+          ${this.userProfile?.role === 'admin' ? `
+          <div class="person-item" onclick="App.renderAdminPage()">
+            <div style="flex:1;font-size:14px;color:var(--moss)">관리자 메뉴</div>
+            <div style="color:var(--gold)">›</div>
+          </div>` : ''}
           <div class="person-item">
             <div style="flex:1;font-size:14px">알림 설정</div>
             <div style="color:var(--ink-4)">›</div>
@@ -794,11 +984,16 @@ const App = {
     document.getElementById('page-container').innerHTML = `
       <div class="page-header">
         <div class="page-header-inner">
-          <button onclick="App.navigate('clan')" style="background:none;border:none;cursor:pointer;color:var(--moss);font-size:14px">← 뒤로</button>
-          <div class="page-title">인물 등록</div>
+          <button onclick="App.navigate('profile')" style="background:none;border:none;cursor:pointer;color:var(--moss);font-size:14px">← 뒤로</button>
+          <div class="page-title">관리자</div>
           <div></div>
         </div>
       </div>
+      <div style="display:flex;background:var(--paper-2);border-radius:var(--radius);padding:3px;margin:0 20px 4px;">
+        <button class="tab-btn active" id="admin-tab-persons" onclick="App.showAdminTab('persons')">인물 관리</button>
+        <button class="tab-btn" id="admin-tab-members" onclick="App.showAdminTab('members')">회원 관리</button>
+      </div>
+      <div id="section-persons">
       <div class="section">
         <!-- 안내 배너 -->
         <div style="background:var(--moss-pale);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--moss);line-height:1.6">
@@ -866,6 +1061,18 @@ const App = {
         <div id="admin-person-list">
           <div class="text-muted text-center" style="padding:20px 0">불러오는 중...</div>
         </div>
+      </div>
+      </div>
+
+      <div id="section-members" style="display:none">
+      <div class="section">
+        <div class="section-title">가입 회원 목록
+          <button class="btn btn-sm btn-secondary" onclick="App.loadMemberList()" style="margin-left:8px;font-size:11px">새로고침</button>
+        </div>
+        <div id="member-list">
+          <div class="text-muted text-center" style="padding:20px 0">불러오는 중...</div>
+        </div>
+      </div>
       </div>
     `;
 
@@ -1205,7 +1412,153 @@ const App = {
     setTimeout(() => this.loadTree(), 500);
   },
 
-  // ── Ancestor Setup ────────────────────────────
+  // ── Admin Tab 전환 ───────────────────────────
+  showAdminTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const activeBtn = document.getElementById('admin-tab-' + tab);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    if (tab === 'persons') {
+      // 인물 관리 섹션 표시, 회원 관리 숨김
+      const ps = document.getElementById('section-persons');
+      const ms = document.getElementById('section-members');
+      if (ps) ps.style.display = '';
+      if (ms) ms.style.display = 'none';
+    } else {
+      const ps = document.getElementById('section-persons');
+      const ms = document.getElementById('section-members');
+      if (ps) ps.style.display = 'none';
+      if (ms) { ms.style.display = ''; this.loadMemberList(); }
+    }
+  },
+
+  // ── 회원 목록 로드 ────────────────────────────
+  async loadMemberList() {
+    const el = document.getElementById('member-list');
+    if (!el) return;
+    el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">불러오는 중...</div>';
+    try {
+      const snap = await db.collection('users').get();
+      const members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (!members.length) {
+        el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">등록된 회원 없음</div>';
+        return;
+      }
+      el.innerHTML = members.map(m => {
+        const roleColor = m.role === 'admin' ? 'var(--gold)' : 'var(--ink-4)';
+        const roleBg = m.role === 'admin' ? 'var(--gold-pale)' : 'var(--paper-2)';
+        return '<div class="person-item" style="padding:12px 0">'
+          + '<div class="person-avatar" style="width:38px;height:38px;font-size:15px">' + ((m.name||'?')[0]) + '</div>'
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-family:var(--font-serif);font-size:14px;font-weight:500">' + (m.name||'미상') + '</div>'
+          + '<div class="person-meta" style="margin-top:2px">' + (m.email||'') + '</div>'
+          + '<div style="margin-top:4px;display:flex;gap:6px;align-items:center">'
+          + '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:'+roleBg+';color:'+roleColor+'">' + (m.role||'member') + '</span>'
+          + (m.birthYear ? '<span class="person-meta">' + m.birthYear + '년생</span>' : '')
+          + '</div></div>'
+          + '<div style="display:flex;gap:4px">'
+          + '<button class="btn btn-sm" style="font-size:11px;color:var(--moss);background:none;border:0.5px solid var(--border-strong);padding:4px 10px;border-radius:6px" onclick="App.showEditMemberModal('' + m.id + '')">수정</button>'
+          + (m.id !== App.userProfile?.id
+            ? '<button class="btn btn-sm" style="font-size:11px;color:var(--rust);background:none;border:none;padding:4px 8px" onclick="App.deleteMember('' + m.id + '','' + (m.name||'') + '')">삭제</button>'
+            : '')
+          + '</div></div>';
+      }).join('');
+    } catch(e) {
+      el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">오류: ' + e.message + '</div>';
+    }
+  },
+
+  // ── 회원 수정 모달 ────────────────────────────
+  async showEditMemberModal(uid) {
+    const doc = await db.collection('users').doc(uid).get();
+    if (!doc.exists) { this.showToast('회원 정보를 찾을 수 없습니다'); return; }
+    const m = { id: doc.id, ...doc.data() };
+
+    document.querySelector('.edit-modal')?.remove();
+    document.querySelector('.sheet-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.className = 'bottom-sheet edit-modal';
+    modal.style.maxHeight = '80dvh';
+    modal.innerHTML = '<div class="bottom-sheet-handle"></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+      + '<div style="font-family:var(--font-serif);font-size:18px;font-weight:500">회원 정보 수정</div>'
+      + '<button id="ep-cancel" style="width:28px;height:28px;background:rgba(60,55,45,0.08);border:none;border-radius:50%;cursor:pointer;font-size:14px;color:var(--ink-3)">✕</button>'
+      + '</div>'
+      + '<div class="form-group"><label class="form-label">성명</label>'
+      + '<input type="text" id="em-name" class="form-input" value="' + (m.name||'') + '" /></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label class="form-label">출생연도</label>'
+      + '<input type="number" id="em-birth" class="form-input" value="' + (m.birthYear||'') + '" placeholder="예) 1975" /></div>'
+      + '<div class="form-group"><label class="form-label">세수(世)</label>'
+      + '<input type="number" id="em-saesu" class="form-input" value="' + (m.saesu||'') + '" placeholder="예) 8" /></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label class="form-label">본관</label>'
+      + '<input type="text" id="em-bongwan" class="form-input" value="' + (m.bongwan||'의령') + '" /></div>'
+      + '<div class="form-group"><label class="form-label">파</label>'
+      + '<input type="text" id="em-pa" class="form-input" value="' + (m.pa||'사천백파') + '" /></div>'
+      + '</div>'
+      + '<div class="form-group"><label class="form-label">권한</label>'
+      + '<select id="em-role" class="form-select">'
+      + '<option value="member"' + (m.role!=='admin'?' selected':'') + '>member (일반)</option>'
+      + '<option value="admin"' + (m.role==='admin'?' selected':'') + '>admin (관리자)</option>'
+      + '</select></div>'
+      + '<div style="display:flex;gap:10px;margin-top:8px">'
+      + '<button id="em-save" class="btn btn-primary" style="flex:1;border-radius:var(--radius-lg)">저장</button>'
+      + '</div>';
+
+    document.body.appendChild(modal);
+    overlay.classList.add('active');
+    setTimeout(() => modal.classList.add('open'), 10);
+
+    const close = () => {
+      modal.classList.remove('open');
+      overlay.classList.remove('active');
+      setTimeout(() => { modal.remove(); overlay.remove(); }, 350);
+    };
+    overlay.addEventListener('click', close);
+    document.getElementById('ep-cancel').addEventListener('click', close);
+    document.getElementById('em-save').addEventListener('click', async () => {
+      const btn = document.getElementById('em-save');
+      btn.textContent = '저장 중...'; btn.disabled = true;
+      try {
+        await DB.saveUserProfile(uid, {
+          name: document.getElementById('em-name').value.trim(),
+          birthYear: parseInt(document.getElementById('em-birth').value)||null,
+          saesu: parseInt(document.getElementById('em-saesu').value)||null,
+          bongwan: document.getElementById('em-bongwan').value.trim(),
+          pa: document.getElementById('em-pa').value.trim(),
+          role: document.getElementById('em-role').value
+        });
+        this.showToast('수정 완료!');
+        close();
+        await this.loadMemberList();
+      } catch(e) {
+        this.showToast('저장 실패: ' + e.message);
+        btn.textContent = '저장'; btn.disabled = false;
+      }
+    });
+  },
+
+  // ── 회원 삭제 ────────────────────────────────
+  async deleteMember(uid, name) {
+    if (!confirm((name||'이 회원') + '을(를) 삭제하시겠습니까?
+(Firebase Auth 계정은 별도로 삭제해야 합니다)')) return;
+    try {
+      await db.collection('users').doc(uid).delete();
+      this.showToast((name||'회원') + ' 삭제 완료');
+      await this.loadMemberList();
+    } catch(e) {
+      this.showToast('삭제 실패: ' + e.message);
+    }
+  },
+
+    // ── Ancestor Setup ────────────────────────────
   renderAncestorSetup() {
     document.getElementById('page-container').innerHTML = `
       <div class="page-header">
