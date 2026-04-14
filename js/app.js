@@ -416,8 +416,30 @@ const App = {
       const btn = document.getElementById('self-confirm');
       btn.textContent = '연결 중...'; btn.disabled = true;
       try {
-        // 기존 person 노드에 linkedUid 추가 + userProfile에 personId 연결
-        await DB.updatePerson(personId, { linkedUid: Auth.getUid() });
+        const allPersons = await DB.getAllPersons(200);
+        const me = allPersons.find(p => p.id === personId);
+
+        // parentId가 없으면 부모를 자동으로 찾아 연결
+        let updateData = { linkedUid: Auth.getUid() };
+        if (!me?.parentId && personGen > 1) {
+          // 한 세대 위 인물 중 같은 rootAncestorId 우선, 없으면 세대만 맞는 것
+          const rootId = me?.rootAncestorId;
+          let parentCandidates = allPersons.filter(p =>
+            p.generation === personGen - 1 && !p.isSpouse &&
+            (rootId ? p.rootAncestorId === rootId : true)
+          );
+          // rootId로 못 찾으면 세대만으로 검색
+          if (!parentCandidates.length) {
+            parentCandidates = allPersons.filter(p => p.generation === personGen - 1 && !p.isSpouse);
+          }
+          if (parentCandidates.length >= 1) {
+            // 부모 후보 중 첫 번째 사용 (관리자가 나중에 수정 가능)
+            updateData.parentId = parentCandidates[0].id;
+            updateData.rootAncestorId = parentCandidates[0].rootAncestorId || parentCandidates[0].id;
+          }
+        }
+
+        await DB.updatePerson(personId, updateData);
         await DB.updateUserProfile(Auth.getUid(), {
           personId, saesu: personGen, daeson: personGen - 1
         });
@@ -1292,7 +1314,8 @@ const App = {
       <div class="section">
         <div class="section-title">등록된 인물 목록
           <button class="btn btn-sm btn-secondary" onclick="App.loadAdminList()" style="margin-left:8px;font-size:11px">새로고침</button>
-          <button class="btn btn-sm" onclick="App.bulkFixConnections()" style="margin-left:6px;font-size:11px;background:var(--gold-pale);color:var(--gold);border:0.5px solid rgba(154,123,58,0.3)">미연결 일괄수정</button>
+          <button class="btn btn-sm" onclick="App.bulkFixConnections()" style="margin-left:6px;font-size:11px;background:var(--gold-pale);color:var(--gold);border:0.5px solid rgba(154,123,58,0.3)">rootId 일괄연결</button>
+          <button class="btn btn-sm" onclick="App.bulkFixParentIds()" style="margin-left:6px;font-size:11px;background:var(--moss-pale);color:var(--moss);border:0.5px solid rgba(44,58,43,0.3)">parentId 자동연결</button>
         </div>
         <div id="admin-person-list">
           <div class="text-muted text-center" style="padding:20px 0">불러오는 중...</div>
@@ -1831,6 +1854,58 @@ const App = {
     } catch(e) {
       this.showToast('삭제 실패: ' + e.message);
     }
+  },
+
+    // ── parentId 일괄 자동 연결 ──────────────────
+  // 세대 순서대로 1세→2세→...→N세 직계 자동 연결
+  async bulkFixParentIds() {
+    const persons = this._adminPersons;
+    if (!persons.length) { this.showToast('먼저 목록을 새로고침 해주세요'); return; }
+
+    // 세대별 정렬
+    const sorted = [...persons].sort((a, b) => (a.generation||0) - (b.generation||0));
+    const byId = {};
+    sorted.forEach(p => byId[p.id] = p);
+
+    let fixed = 0, skipped = 0, failed = 0;
+
+    for (const p of sorted) {
+      // 이미 parentId 있으면 스킵
+      if (p.parentId) { skipped++; continue; }
+      // 1세(7대조)는 부모 없음
+      if (p.generation <= 1) { skipped++; continue; }
+
+      // 같은 rootAncestorId 중 바로 윗 세대 찾기
+      const parentGen = p.generation - 1;
+      const rootId = p.rootAncestorId;
+
+      let candidates = sorted.filter(x =>
+        x.generation === parentGen &&
+        (rootId ? x.rootAncestorId === rootId : true)
+      );
+
+      // 못 찾으면 세대만으로
+      if (!candidates.length) {
+        candidates = sorted.filter(x => x.generation === parentGen);
+      }
+
+      if (!candidates.length) { skipped++; continue; }
+
+      // 후보가 1명이면 자동, 여러 명이면 첫 번째
+      const parent = candidates[0];
+      try {
+        await DB.updatePerson(p.id, { parentId: parent.id });
+        byId[p.id].parentId = parent.id;
+        fixed++;
+      } catch(e) {
+        failed++;
+        console.error('parentId 연결 실패:', p.name, e);
+      }
+    }
+
+    this.showToast('parentId 연결: ' + fixed + '명 완료' + (skipped?' / '+skipped+'명 스킵':'') + (failed?' / '+failed+'명 실패':''));
+    await this.loadAdminList();
+    setTimeout(() => this.loadTree(), 500);
   },
 
     // ── Ancestor Setup ────────────────────────────
