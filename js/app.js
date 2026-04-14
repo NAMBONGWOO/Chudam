@@ -1285,11 +1285,33 @@ const App = {
             <input type="hidden" id="p-gen" value="" />
             <div class="form-hint">7대조=1세, 6대조=2세, … 아버지=본인세수-1, 나=본인세수</div>
           </div>
+          <!-- 성별 + 배우자 여부 -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">성별</label>
+              <select id="p-gender" class="form-select">
+                <option value="">선택 안 함</option>
+                <option value="M">남성</option>
+                <option value="F">여성 (배우자/며느리)</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:24px">
+              <input type="checkbox" id="p-is-spouse" style="width:18px;height:18px;cursor:pointer" />
+              <label for="p-is-spouse" style="font-size:13px;color:var(--ink-2);cursor:pointer">배우자로 등록</label>
+            </div>
+          </div>
           <!-- 부모 선택 -->
           <div class="form-group" id="parent-group" style="display:none">
             <label class="form-label">부모 선택 <span style="font-size:11px;color:var(--ink-4)">(위 세대에서 선택)</span></label>
             <select id="p-parent-select" class="form-select">
               <option value="">— 부모 선택 —</option>
+            </select>
+          </div>
+          <!-- 배우자 연결 (배우자로 등록 시) -->
+          <div class="form-group" id="spouse-link-group" style="display:none">
+            <label class="form-label">배우자 연결 <span style="font-size:11px;color:var(--ink-4)">(같은 세대 남성)</span></label>
+            <select id="p-spouse-select" class="form-select">
+              <option value="">— 배우자 선택 —</option>
             </select>
           </div>
           <!-- 생몰년도 -->
@@ -1367,6 +1389,35 @@ const App = {
       });
     });
 
+    // 배우자 체크박스 토글
+    document.getElementById('p-is-spouse').addEventListener('change', async (e) => {
+      const isSpouse = e.target.checked;
+      const parentGroup = document.getElementById('parent-group');
+      const spouseLinkGroup = document.getElementById('spouse-link-group');
+      if (isSpouse) {
+        parentGroup.style.display = 'none';
+        spouseLinkGroup.style.display = '';
+        // 배우자 선택 드롭다운 채우기 (같은 세대 남성)
+        const genVal = parseInt(document.getElementById('p-gen').value);
+        const select = document.getElementById('p-spouse-select');
+        select.innerHTML = '<option value="">— 배우자 선택 —</option>';
+        if (genVal) {
+          this._adminPersons
+            .filter(p => p.generation === genVal && p.gender !== 'F')
+            .forEach(p => {
+              const opt = document.createElement('option');
+              opt.value = p.id;
+              opt.textContent = p.name + ' (' + p.generation + '세)';
+              select.appendChild(opt);
+            });
+        }
+        document.getElementById('p-gender').value = 'F';
+      } else {
+        parentGroup.style.display = document.getElementById('p-gen').value > 1 ? '' : 'none';
+        spouseLinkGroup.style.display = 'none';
+      }
+    });
+
     // 등록 버튼
     document.getElementById('btn-add-person').addEventListener('click', () => this.submitAdminPerson());
   },
@@ -1415,17 +1466,23 @@ const App = {
       rootAncestorId = parent?.rootAncestorId || parent?.id || null;
     }
 
+    const isSpouse = document.getElementById('p-is-spouse')?.checked || false;
+    const gender = document.getElementById('p-gender')?.value || null;
+    const spouseTargetId = isSpouse ? (document.getElementById('p-spouse-select')?.value || null) : null;
+
     const data = {
       name,
       hanja: document.getElementById('p-hanja').value.trim(),
       surname: this.userProfile?.name?.slice(0,1) || '',
-      bongwan: this.userProfile?.bongwan || '',
-      pa: this.userProfile?.pa || '',
+      bongwan: isSpouse ? '' : (this.userProfile?.bongwan || ''),
+      pa: isSpouse ? '' : (this.userProfile?.pa || ''),
       generation: gen,
+      gender: gender || null,
       birthYear: parseInt(document.getElementById('p-birth').value) || null,
       deathYear: parseInt(document.getElementById('p-death').value) || null,
-      parentId: parentId || null,
-      rootAncestorId,
+      parentId: isSpouse ? null : (parentId || null),
+      rootAncestorId: isSpouse ? null : rootAncestorId,
+      spouseId: spouseTargetId || null,
       memorialLocation: document.getElementById('p-location').value.trim(),
       jesaDate: document.getElementById('p-jesa').value.trim(),
       addedByUid: Auth.getUid()
@@ -1442,7 +1499,11 @@ const App = {
         await DB.updatePerson(id, { rootAncestorId: id });
       }
 
-      this._adminMsg(`✅ ${name} 등록 완료!`, true);
+      // 배우자 등록 시 상대방에도 역방향 연결
+      if (isSpouse && spouseTargetId) {
+        await DB.updatePerson(spouseTargetId, { spouseId: id });
+      }
+      this._adminMsg('✅ ' + name + ' 등록 완료!', true);
 
       // 입력 초기화
       document.getElementById('p-name').value = '';
