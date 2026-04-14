@@ -271,41 +271,29 @@ const App = {
     const p = this.userProfile;
     if (!p) return;
     const selfGen = p.saesu || 8;
-    const totalGens = Math.max(selfGen + 2, 9); // 7대조~나+후손 여백 2세대
+    const container = document.getElementById('tree-wrap');
+    if (!container) return;
 
     try {
-      // 내가 연결된 인물 데이터 로드 (있으면 실제, 없으면 ghost만)
-      let realPersons = [];
-      if (p.personId) {
-        // personId가 있으면 같은 rootAncestorId 전체 로드
-        const me = await DB.getPerson(p.personId);
-        if (me?.rootAncestorId) {
-          realPersons = await DB.getPersonsByRootId(me.rootAncestorId);
-        }
-      } else {
-        // personId 없으면 본인 정보만 임시 노드로
-        realPersons = [{
-          id: 'self-temp',
-          name: p.name,
-          generation: selfGen,
-          bongwan: p.bongwan,
-          pa: p.pa
-        }];
+      let realPersons = await DB.getAllPersons(200);
+      console.log('persons loaded:', realPersons.length);
+
+      const meInTree = realPersons.find(pr => pr.id === p.personId);
+      const selfPersonId = meInTree ? p.personId : 'self-temp';
+      if (!meInTree) {
+        realPersons.push({ id: 'self-temp', name: p.name, generation: selfGen });
       }
 
-      const container = document.getElementById('tree-wrap');
-      Tree.render(container, realPersons, p.personId || 'self-temp', selfGen, totalGens);
+      const gens = realPersons.map(pr => pr.generation || 0).filter(g => g > 0);
+      const maxGen = gens.length ? Math.max(...gens) : selfGen;
+      const totalGens = Math.max(maxGen + 2, selfGen + 2, 9);
+
+      Tree.render(container, realPersons, selfPersonId, selfGen, totalGens);
     } catch (e) {
-      console.error('트리 로드 오류:', e);
-      const container = document.getElementById('tree-wrap');
-      if (container) {
-        // 에러 시에도 기본 ghost 트리는 보여줌
-        Tree.render(container, [{
-          id: 'self-temp',
-          name: p?.name || '나',
-          generation: selfGen
-        }], 'self-temp', selfGen, Math.max(selfGen + 2, 9));
-      }
+      console.error('Tree load error:', e);
+      Tree.render(container,
+        [{ id: 'self-temp', name: p.name || '나', generation: selfGen }],
+        'self-temp', selfGen, Math.max(selfGen + 2, 9));
     }
   },
 
