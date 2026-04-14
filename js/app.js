@@ -1385,7 +1385,23 @@ const App = {
         document.getElementById('p-gen').value = gen;
 
         const parentGroup = document.getElementById('parent-group');
-        if (gen === 1) {
+        const isSpouseMode = document.getElementById('p-is-spouse')?.checked;
+        if (isSpouseMode) {
+          parentGroup.style.display = 'none';
+          // 배우자 드롭다운 업데이트
+          const select = document.getElementById('p-spouse-select');
+          if (select) {
+            select.innerHTML = '<option value="">— 배우자 선택 —</option>';
+            this._adminPersons
+              .filter(p => p.generation === gen && p.gender !== 'F' && !p.spouseId)
+              .forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name + ' (' + p.generation + '세)';
+                select.appendChild(opt);
+              });
+          }
+        } else if (gen === 1) {
           parentGroup.style.display = 'none';
         } else {
           parentGroup.style.display = 'block';
@@ -1455,8 +1471,9 @@ const App = {
       ? (document.getElementById('p-parent-select')?.value || null)
       : null;
 
-    // 2세 이상인데 부모 미선택 시 경고
-    if (gen > 1 && !parentId) {
+    // 배우자 등록이 아닌 경우에만 부모 필수
+    const isSpouseCheck = document.getElementById('p-is-spouse')?.checked || false;
+    if (!isSpouseCheck && gen > 1 && !parentId) {
       this._adminMsg('부모를 선택해 주세요. 부모가 없으면 먼저 윗 세대를 등록하세요.', false);
       return;
     }
