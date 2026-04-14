@@ -264,106 +264,212 @@ const App = {
     if (el) { el.textContent = msg; el.style.display = 'block'; }
   },
 
-  // ── 가계도 자동 연결 화면 (부모 이름 매칭) ──────
+  // ── 가계도 연결 화면 ──────────────────────────
+  // 전략: 관리자가 등록한 persons에서 "나를 찾아 선택" → personId 연결
+  // 없으면 아버지 선택 → 새 person 생성
   async renderLinkToTree() {
     const el = document.getElementById('page-container');
-    const name = this.userProfile?.name || '';
+    const myName = this.userProfile?.name || '';
     el.innerHTML = `
       <div style="min-height:100dvh;background:var(--paper);display:flex;flex-direction:column">
         <div style="background:var(--moss);padding:36px 24px 28px;text-align:center">
           <div style="font-family:var(--font-serif);font-size:13px;color:rgba(248,245,239,0.55);letter-spacing:0.06em;margin-bottom:8px">추담공원</div>
-          <div style="font-family:var(--font-serif);font-size:22px;color:var(--gold-light)">${name}님, 환영합니다</div>
-          <div style="font-size:13px;color:rgba(248,245,239,0.6);margin-top:8px;line-height:1.6">아버지 성함을 입력하시면<br/>가계도에 자동으로 연결해 드립니다</div>
+          <div style="font-family:var(--font-serif);font-size:22px;color:var(--gold-light)">${myName}님, 환영합니다</div>
+          <div style="font-size:13px;color:rgba(248,245,239,0.6);margin-top:8px;line-height:1.6">가계도에서 본인을 찾아 연결해 주세요</div>
         </div>
-
-        <div style="padding:24px 20px;flex:1">
-          <div class="form-group">
-            <label class="form-label">아버지 성함 <span class="required">*</span></label>
-            <div style="display:flex;gap:8px">
-              <input type="text" id="parent-name-input" class="form-input" placeholder="예) 남○○" style="flex:1" />
-              <button id="btn-search-parent" class="btn btn-primary" style="width:72px;border-radius:var(--radius-lg);flex-shrink:0">찾기</button>
-            </div>
-            <div class="form-hint">등록된 인물 중에서 검색합니다</div>
+        <div style="padding:20px;flex:1">
+          <div style="background:var(--moss-pale);border-radius:var(--radius-lg);padding:14px;margin-bottom:20px;font-size:12px;color:var(--moss);line-height:1.65">
+            관리자가 등록한 인물 목록에서 <strong>본인</strong>을 선택하거나,<br/>
+            없으면 <strong>아버지 이름</strong>으로 검색해 연결하세요.
           </div>
 
-          <div id="parent-search-result" style="margin-top:8px"></div>
+          <div class="tabs" style="margin-bottom:16px">
+            <button class="tab-btn active" id="tab-find-me">내 이름 찾기</button>
+            <button class="tab-btn" id="tab-find-dad">아버지로 찾기</button>
+          </div>
 
-          <div style="margin-top:32px;padding-top:20px;border-top:0.5px solid var(--border);text-align:center">
-            <div style="font-size:12px;color:var(--ink-4);margin-bottom:10px">아버지가 아직 등록되지 않으셨나요?</div>
-            <button onclick="App.skipLinkToTree()" class="btn btn-secondary btn-sm">나중에 연결하기</button>
+          <div id="tab-content-me">
+            <div class="form-group">
+              <input type="text" id="me-search" class="form-input" placeholder="내 이름 검색..." />
+            </div>
+            <div id="me-list" style="max-height:45dvh;overflow-y:auto"></div>
+          </div>
+
+          <div id="tab-content-dad" style="display:none">
+            <div class="form-group">
+              <div style="display:flex;gap:8px">
+                <input type="text" id="dad-search-input" class="form-input" placeholder="아버지 성함 입력..." style="flex:1"/>
+                <button id="btn-search-dad" class="btn btn-primary" style="width:72px;border-radius:var(--radius-lg);flex-shrink:0">찾기</button>
+              </div>
+              <div class="form-hint">아버지 성함으로 검색 후 선택하세요</div>
+            </div>
+            <div id="dad-search-result"></div>
+          </div>
+
+          <div style="margin-top:24px;text-align:center;padding-top:16px;border-top:0.5px solid var(--border)">
+            <button onclick="App.skipLinkToTree()" style="background:none;border:none;color:var(--ink-4);font-size:13px;cursor:pointer;text-decoration:underline">나중에 연결하기</button>
           </div>
         </div>
       </div>
     `;
 
-    const doSearch = async () => {
-      const query = document.getElementById('parent-name-input').value.trim();
-      if (!query) { App.showToast('아버지 성함을 입력해 주세요'); return; }
-      const btn = document.getElementById('btn-search-parent');
-      btn.textContent = '검색 중...'; btn.disabled = true;
-      await App.searchParentByName(query);
-      btn.textContent = '찾기'; btn.disabled = false;
-    };
+    const allPersons = await DB.getAllPersons(200);
+    this._linkPersons = allPersons;
 
-    document.getElementById('btn-search-parent').addEventListener('click', doSearch);
-    document.getElementById('parent-name-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doSearch();
+    // 내 이름 탭 렌더
+    const renderMeList = (query) => {
+      const el = document.getElementById('me-list');
+      if (!el) return;
+      const filtered = query
+        ? allPersons.filter(p => (p.name||'').includes(query))
+        : allPersons;
+      if (!filtered.length) {
+        el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">검색 결과 없음</div>';
+        return;
+      }
+      el.innerHTML = '';
+      // 세대별 그룹
+      const byGen = {};
+      filtered.forEach(p => { const g=p.generation||0; if(!byGen[g])byGen[g]=[]; byGen[g].push(p); });
+      Object.keys(byGen).sort((a,b)=>a-b).forEach(g => {
+        const header = document.createElement('div');
+        header.style.cssText = 'font-size:11px;color:var(--ink-4);padding:8px 2px 4px';
+        header.textContent = g+'세'+(g==1?' (7대조)':g==2?' (6대조)':'');
+        el.appendChild(header);
+        byGen[g].forEach(p => {
+          const div = document.createElement('div');
+          div.style.cssText = 'display:flex;align-items:center;gap:14px;padding:12px 14px;border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--paper)';
+          div.innerHTML = '<div class="person-avatar" style="width:40px;height:40px;font-size:16px;'+(p.deathYear?'background:var(--paper-3);color:var(--ink-3)':'background:var(--moss-pale);color:var(--moss)')+'">'
+            +((p.name||'?')[0])+'</div>'
+            +'<div style="flex:1"><div style="font-family:var(--font-serif);font-size:15px;font-weight:500">'+(p.name||'미상')+'</div>'
+            +'<div style="font-size:12px;color:var(--ink-3);margin-top:2px">'+g+'세'+(p.birthYear?' · '+p.birthYear+'년':'')+(p.deathYear?' · 작고':'')+'</div></div>'
+            +'<div style="color:var(--moss);font-size:18px">›</div>';
+          div.addEventListener('mouseover', () => div.style.background='var(--paper-2)');
+          div.addEventListener('mouseout', () => div.style.background='var(--paper)');
+          div.addEventListener('click', () => App.confirmSelfLink(p.id, p.name, p.generation));
+          el.appendChild(div);
+        });
+      });
+    };
+    renderMeList('');
+    document.getElementById('me-search').addEventListener('input', e => renderMeList(e.target.value.trim()));
+
+    // 탭 전환
+    document.getElementById('tab-find-me').addEventListener('click', () => {
+      document.getElementById('tab-find-me').classList.add('active');
+      document.getElementById('tab-find-dad').classList.remove('active');
+      document.getElementById('tab-content-me').style.display = '';
+      document.getElementById('tab-content-dad').style.display = 'none';
+    });
+    document.getElementById('tab-find-dad').addEventListener('click', () => {
+      document.getElementById('tab-find-dad').classList.add('active');
+      document.getElementById('tab-find-me').classList.remove('active');
+      document.getElementById('tab-content-me').style.display = 'none';
+      document.getElementById('tab-content-dad').style.display = '';
+    });
+
+    // 아버지 검색
+    const doSearch = async () => {
+      const q = document.getElementById('dad-search-input').value.trim();
+      if (!q) { App.showToast('아버지 성함을 입력해 주세요'); return; }
+      await App.searchParentByName(q);
+    };
+    document.getElementById('btn-search-dad').addEventListener('click', doSearch);
+    document.getElementById('dad-search-input').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
+  },
+
+  // 본인 노드 직접 선택 → personId 연결
+  async confirmSelfLink(personId, personName, personGen) {
+    const myName = this.userProfile?.name || '나';
+    const nameMatch = (personName||'').includes(myName) || (myName||'').includes(personName||'');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.className = 'bottom-sheet';
+    modal.innerHTML = '<div class="bottom-sheet-handle"></div>'
+      + '<div style="text-align:center;padding:8px 0 20px">'
+      + '<div style="font-size:13px;color:var(--ink-3);margin-bottom:16px">이 분이 본인이신가요?</div>'
+      + '<div class="person-avatar" style="width:64px;height:64px;font-size:26px;background:var(--moss);color:var(--paper);margin:0 auto 12px">'+(personName||'?')[0]+'</div>'
+      + '<div style="font-family:var(--font-serif);font-size:18px;font-weight:500">'+personName+'</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);margin-top:4px">'+personGen+'세</div>'
+      + (!nameMatch ? '<div style="margin-top:12px;padding:10px;background:var(--gold-pale);border-radius:var(--radius-lg);font-size:12px;color:var(--gold)">가입 이름('+myName+')과 다릅니다. 맞으시면 연결하세요.</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:10px">'
+      + '<button id="self-cancel" class="btn btn-secondary" style="flex:1">취소</button>'
+      + '<button id="self-confirm" class="btn btn-primary" style="flex:2;border-radius:var(--radius-lg)">본인입니다 · 연결하기</button>'
+      + '</div>';
+
+    document.body.appendChild(modal);
+    overlay.classList.add('active');
+    setTimeout(() => modal.classList.add('open'), 10);
+
+    const close = () => {
+      modal.classList.remove('open'); overlay.classList.remove('active');
+      setTimeout(() => { modal.remove(); overlay.remove(); }, 350);
+    };
+    overlay.addEventListener('click', close);
+    document.getElementById('self-cancel').addEventListener('click', close);
+    document.getElementById('self-confirm').addEventListener('click', async () => {
+      const btn = document.getElementById('self-confirm');
+      btn.textContent = '연결 중...'; btn.disabled = true;
+      try {
+        // 기존 person 노드에 linkedUid 추가 + userProfile에 personId 연결
+        await DB.updatePerson(personId, { linkedUid: Auth.getUid() });
+        await DB.updateUserProfile(Auth.getUid(), {
+          personId, saesu: personGen, daeson: personGen - 1
+        });
+        this.userProfile.personId = personId;
+        this.userProfile.saesu = personGen;
+        this.clearInviteInfo();
+        close();
+        this.showToast('"'+personName+'"으로 연결 완료!');
+        setTimeout(() => this.navigate('memorial'), 800);
+      } catch(e) {
+        this.showToast('연결 실패: ' + e.message);
+        btn.textContent = '본인입니다 · 연결하기'; btn.disabled = false;
+      }
     });
   },
 
+  // 아버지로 찾기 (persons에 본인이 없는 경우)
   async searchParentByName(query) {
-    const resultEl = document.getElementById('parent-search-result');
+    const resultEl = document.getElementById('dad-search-result');
     if (!resultEl) return;
-
     resultEl.innerHTML = '<div class="text-muted text-center" style="padding:16px 0">검색 중...</div>';
-
     try {
       const allPersons = await DB.getAllPersons(200);
-      const matches = allPersons.filter(p =>
-        (p.name || '').includes(query) || (p.hanja || '').includes(query)
-      );
-
+      const matches = allPersons.filter(p => (p.name||'').includes(query)||(p.hanja||'').includes(query));
       if (!matches.length) {
-        resultEl.innerHTML = `
-          <div style="background:var(--rust-pale);border-radius:var(--radius-lg);padding:16px;text-align:center">
-            <div style="font-size:14px;color:var(--rust);font-family:var(--font-serif)">"${query}"</div>
-            <div style="font-size:12px;color:var(--ink-3);margin-top:6px">등록된 인물을 찾지 못했습니다.<br/>관리자에게 먼저 등록을 요청해 주세요.</div>
-          </div>`;
+        resultEl.innerHTML = '<div style="background:var(--rust-pale);border-radius:var(--radius-lg);padding:16px;text-align:center"><div style="font-size:14px;color:var(--rust)">"'+query+'"</div><div style="font-size:12px;color:var(--ink-3);margin-top:6px">등록된 인물을 찾지 못했습니다.<br/>관리자에게 먼저 등록을 요청해 주세요.</div></div>';
         return;
       }
-
-      resultEl.innerHTML = '<div style="font-size:12px;color:var(--ink-3);margin-bottom:10px">'
-        + matches.length + '명을 찾았습니다. 아버지를 선택해 주세요.</div>'
-        + matches.map(p => {
-            const genLabel = p.generation === 1 ? '7대조' : p.generation + '세';
-            const yr = p.birthYear ? p.birthYear + '년생' : '';
-            const deathMark = p.deathYear ? ' · 작고' : '';
-            const safeId = p.id;
-            const safeName = (p.name||'').replace(/["']/g,'');
-            return '<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--paper)" '
-              + 'data-pid="'+safeId+'" data-pname="'+safeName+'" data-pgen="'+p.generation+'" '
-              + 'onclick="App.confirmParentLink(this.dataset.pid,this.dataset.pname,+this.dataset.pgen)" '
-              + 'onmouseover="this.style.background=\'var(--paper-2)\'" '
-              + 'onmouseout="this.style.background=\'var(--paper)\'">'
-              + '<div class="person-avatar" style="width:44px;height:44px;font-size:18px;'
-              + ((p.name||'?')[0]) + '</div>'
-              + '<div style="flex:1">'
-              + '<div style="font-family:var(--font-serif);font-size:16px;font-weight:500">' + (p.name||'미상') + '</div>'
-              + '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">' + genLabel + (yr?' · '+yr:'') + deathMark + '</div>'
-              + '</div>'
-              + '<div style="font-size:22px;color:var(--moss)">›</div>'
-              + '</div>';
-          }).join('');
+      resultEl.innerHTML = '<div style="font-size:12px;color:var(--ink-3);margin-bottom:10px">'+matches.length+'명 발견. 아버지를 선택하세요.</div>';
+      matches.forEach(p => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--paper)';
+        div.innerHTML = '<div class="person-avatar" style="width:44px;height:44px;font-size:18px;'+(p.deathYear?'background:var(--paper-3);color:var(--ink-3)':'background:var(--moss-pale);color:var(--moss)')+'">'
+          +((p.name||'?')[0])+'</div>'
+          +'<div style="flex:1"><div style="font-family:var(--font-serif);font-size:16px;font-weight:500">'+(p.name||'미상')+'</div>'
+          +'<div style="font-size:12px;color:var(--ink-3);margin-top:3px">'+p.generation+'세'+(p.birthYear?' · '+p.birthYear+'년':'')+(p.deathYear?' · 작고':'')+'</div></div>'
+          +'<div style="color:var(--moss);font-size:22px">›</div>';
+        div.addEventListener('mouseover', () => div.style.background='var(--paper-2)');
+        div.addEventListener('mouseout', () => div.style.background='var(--paper)');
+        div.addEventListener('click', () => App.confirmParentLink(p.id, p.name, p.generation));
+        resultEl.appendChild(div);
+      });
     } catch(e) {
-      resultEl.innerHTML = '<div class="text-muted text-center" style="padding:16px 0">오류가 발생했습니다: ' + e.message + '</div>';
+      resultEl.innerHTML = '<div class="text-muted text-center" style="padding:16px 0">오류: '+e.message+'</div>';
     }
   },
 
+  // 아버지 선택 → 새 person 생성 (persons에 본인이 없는 경우에만)
   async confirmParentLink(parentId, parentName, parentGen) {
     const myName = this.userProfile?.name || '나';
     const myGen = parentGen + 1;
 
-    // 확인 팝업
     const overlay = document.createElement('div');
     overlay.className = 'sheet-overlay';
     document.body.appendChild(overlay);
@@ -373,18 +479,15 @@ const App = {
     modal.innerHTML = '<div class="bottom-sheet-handle"></div>'
       + '<div style="text-align:center;padding:8px 0 20px">'
       + '<div style="font-size:13px;color:var(--ink-3);margin-bottom:16px">이렇게 연결하시겠습니까?</div>'
-      + '<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:20px">'
-      + '<div style="text-align:center">'
-      + '<div class="person-avatar" style="width:52px;height:52px;font-size:20px;background:var(--paper-3);color:var(--ink-3);margin:0 auto 6px">' + parentName[0] + '</div>'
-      + '<div style="font-family:var(--font-serif);font-size:14px">' + parentName + '</div>'
-      + '<div style="font-size:11px;color:var(--ink-4)">' + parentGen + '세 · 아버지</div>'
-      + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px">'
+      + '<div style="text-align:center"><div class="person-avatar" style="width:52px;height:52px;font-size:20px;background:var(--paper-3);color:var(--ink-3);margin:0 auto 6px">'+parentName[0]+'</div>'
+      + '<div style="font-family:var(--font-serif);font-size:14px">'+parentName+'</div>'
+      + '<div style="font-size:11px;color:var(--ink-4)">'+parentGen+'세 · 아버지</div></div>'
       + '<div style="font-size:24px;color:var(--border-strong)">↓</div>'
-      + '<div style="text-align:center">'
-      + '<div class="person-avatar" style="width:52px;height:52px;font-size:20px;background:var(--moss);color:var(--paper);margin:0 auto 6px">' + myName[0] + '</div>'
-      + '<div style="font-family:var(--font-serif);font-size:14px">' + myName + '</div>'
-      + '<div style="font-size:11px;color:var(--ink-4)">' + myGen + '세 · 나</div>'
-      + '</div></div>'
+      + '<div style="text-align:center"><div class="person-avatar" style="width:52px;height:52px;font-size:20px;background:var(--moss);color:var(--paper);margin:0 auto 6px">'+myName[0]+'</div>'
+      + '<div style="font-family:var(--font-serif);font-size:14px">'+myName+'</div>'
+      + '<div style="font-size:11px;color:var(--ink-4)">'+myGen+'세 · 나 (신규 등록)</div></div></div>'
+      + '<div style="font-size:11px;color:var(--ink-4);background:var(--paper-2);border-radius:var(--radius);padding:10px;margin-bottom:16px">⚠ 목록에 본인이 없는 경우에만 선택하세요.<br/>이미 등록된 분은 "내 이름 찾기" 탭에서 선택하세요.</div>'
       + '</div>'
       + '<div style="display:flex;gap:10px">'
       + '<button id="link-cancel" class="btn btn-secondary" style="flex:1">취소</button>'
@@ -396,41 +499,34 @@ const App = {
     setTimeout(() => modal.classList.add('open'), 10);
 
     const close = () => {
-      modal.classList.remove('open');
-      overlay.classList.remove('active');
+      modal.classList.remove('open'); overlay.classList.remove('active');
       setTimeout(() => { modal.remove(); overlay.remove(); }, 350);
     };
-
     overlay.addEventListener('click', close);
     document.getElementById('link-cancel').addEventListener('click', close);
     document.getElementById('link-confirm').addEventListener('click', async () => {
       const btn = document.getElementById('link-confirm');
       btn.textContent = '연결 중...'; btn.disabled = true;
       try {
-        // 1) persons에 나를 등록 (아버지의 자녀로)
         const allPersons = await DB.getAllPersons(200);
         const parent = allPersons.find(p => p.id === parentId);
         const rootAncestorId = parent?.rootAncestorId || parentId;
-
         const personId = await DB.savePerson({
           name: this.userProfile.name,
           generation: myGen,
           birthYear: this.userProfile.birthYear || null,
-          parentId,
-          rootAncestorId,
+          parentId, rootAncestorId,
           bongwan: this.userProfile.bongwan || '의령',
           pa: this.userProfile.pa || '사천백파',
           addedByUid: Auth.getUid(),
           linkedUid: Auth.getUid()
         });
-
-        // 2) userProfile에 personId 연결
-        await DB.updateUserProfile(Auth.getUid(), { personId, saesu: myGen, daeson: myGen - 1 });
+        await DB.updateUserProfile(Auth.getUid(), { personId, saesu: myGen, daeson: myGen-1 });
         this.userProfile.personId = personId;
         this.userProfile.saesu = myGen;
-
+        this.clearInviteInfo();
         close();
-        this.showToast('"' + parentName + '"의 자녀로 연결 완료!');
+        this.showToast('"'+parentName+'"의 자녀로 연결 완료!');
         setTimeout(() => this.navigate('memorial'), 800);
       } catch(e) {
         this.showToast('연결 실패: ' + e.message);
@@ -442,6 +538,7 @@ const App = {
   skipLinkToTree() {
     this.navigate('memorial');
   },
+
 
   
     // ── Home (가계도) ──────────────────────────────
