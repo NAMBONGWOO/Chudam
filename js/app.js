@@ -875,12 +875,123 @@ const App = {
                 ${p.rootAncestorId ? ' · 연결됨 ✅' : ' · <span style="color:var(--rust)">미연결</span>'}
               </div>
             </div>
-            <button class="btn btn-sm" style="font-size:11px;color:var(--rust);background:none;border:none;padding:4px 8px"
-              onclick="App.deletePerson('${p.id}','${p.name}')">삭제</button>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-sm" style="font-size:11px;color:var(--moss);background:none;border:0.5px solid var(--border-strong);padding:4px 10px;border-radius:6px"
+                onclick="App.showEditPersonModal('${p.id}')">수정</button>
+              <button class="btn btn-sm" style="font-size:11px;color:var(--rust);background:none;border:none;padding:4px 8px"
+                onclick="App.deletePerson('${p.id}','${p.name}')">삭제</button>
+            </div>
           </div>
         `).join('')}
       </div>
     `).join('');
+  },
+
+  async showEditPersonModal(personId) {
+    const person = this._adminPersons.find(p => p.id === personId);
+    if (!person) { this.showToast('인물 정보를 찾을 수 없습니다'); return; }
+
+    // 기존 모달 제거
+    document.querySelector('.edit-modal')?.remove();
+    document.querySelector('.sheet-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.className = 'bottom-sheet edit-modal';
+    modal.style.maxHeight = '85dvh';
+    modal.innerHTML = `
+      <div class="bottom-sheet-handle"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-family:var(--font-serif);font-size:18px;font-weight:500">인물 수정</div>
+        <span class="gen-badge">${person.generation}세</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">성함 (한글) <span class="required">*</span></label>
+        <input type="text" id="ep-name" class="form-input" value="${person.name || ''}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">성함 (한자)</label>
+        <input type="text" id="ep-hanja" class="form-input" value="${person.hanja || ''}" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">출생년도</label>
+          <input type="number" id="ep-birth" class="form-input" value="${person.birthYear || ''}" placeholder="예) 1940" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">사망년도</label>
+          <input type="number" id="ep-death" class="form-input" value="${person.deathYear || ''}" placeholder="작고 시 입력" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">납골당/묘역 위치</label>
+        <input type="text" id="ep-location" class="form-input" value="${person.memorialLocation || ''}" placeholder="예) 추담공원 3구역 A-15" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">기제사일</label>
+        <input type="text" id="ep-jesa" class="form-input" value="${person.jesaDate || ''}" placeholder="예) 음력 3월 15일" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">부모 변경</label>
+        <select id="ep-parent" class="form-select">
+          <option value="">— 변경 안 함 —</option>
+          ${this._adminPersons
+            .filter(p => p.generation === (person.generation - 1))
+            .map(p => '<option value="' + p.id + '"' + (p.id === person.parentId ? ' selected' : '') + '>' + p.name + ' (' + p.generation + '세)</option>')
+            .join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn btn-secondary" style="flex:1" id="ep-cancel">취소</button>
+        <button class="btn btn-primary" style="flex:2;border-radius:var(--radius-lg)" id="ep-save">저장</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    overlay.classList.add('active');
+    setTimeout(() => modal.classList.add('open'), 10);
+
+    const close = () => {
+      modal.classList.remove('open');
+      overlay.classList.remove('active');
+      setTimeout(() => { modal.remove(); overlay.remove(); }, 350);
+    };
+
+    overlay.addEventListener('click', close);
+    document.getElementById('ep-cancel').addEventListener('click', close);
+
+    document.getElementById('ep-save').addEventListener('click', async () => {
+      const name = document.getElementById('ep-name').value.trim();
+      if (!name) { this.showToast('성함을 입력해 주세요'); return; }
+
+      const btn = document.getElementById('ep-save');
+      btn.textContent = '저장 중...'; btn.disabled = true;
+
+      try {
+        const parentId = document.getElementById('ep-parent').value || person.parentId || null;
+        const updatedData = {
+          name,
+          hanja: document.getElementById('ep-hanja').value.trim(),
+          birthYear: parseInt(document.getElementById('ep-birth').value) || null,
+          deathYear: parseInt(document.getElementById('ep-death').value) || null,
+          memorialLocation: document.getElementById('ep-location').value.trim(),
+          jesaDate: document.getElementById('ep-jesa').value.trim(),
+          parentId
+        };
+
+        await DB.updatePerson(personId, updatedData);
+        this.showToast(name + ' 수정 완료!');
+        close();
+        await this.loadAdminList();
+        setTimeout(() => this.loadTree(), 400);
+      } catch(e) {
+        this.showToast('저장 실패: ' + e.message);
+        btn.textContent = '저장'; btn.disabled = false;
+      }
+    });
   },
 
   async deletePerson(id, name) {
