@@ -36,16 +36,15 @@ const App = {
       return;
     }
     switch (page) {
-      case 'home': this.renderHome(); break;
       case 'memorial': this.renderMemorial(); break;
-      case 'clan': this.renderClan(); break;
-      case 'profile': this.renderProfile(); break;
+      case 'home':     this.renderHome(); break;
+      case 'profile':  this.renderProfile(); break;
     }
   },
 
   onLogin(user) {
     this.loadUserData(user.uid).then(() => {
-      this.navigate('home');
+      this.navigate('memorial');
     });
   },
 
@@ -432,50 +431,158 @@ const App = {
 
   // ── Memorial Page ──────────────────────────────
   renderMemorial() {
+    const p = this.userProfile;
+    const isAdmin = p?.role === 'admin';
     document.getElementById('page-container').innerHTML = `
-      <div class="page-header">
-        <div class="page-header-inner">
-          <div>
-            <div class="page-title">추모공원</div>
-            <div class="page-subtitle">조상님의 안치 위치와 추모 기록</div>
+      <div style="position:relative;width:100%;background:#111a0f;min-height:calc(100dvh - 68px);overflow:hidden">
+
+        <div style="position:relative;width:100%;height:58dvh;overflow:hidden;cursor:pointer" id="memorial-scene">
+          <svg width="100%" viewBox="0 0 400 420" xmlns="http://www.w3.org/2000/svg" style="display:block">
+            <defs>
+              <linearGradient id="msky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ba8c4"/><stop offset="55%" stop-color="#b8d4e8"/><stop offset="100%" stop-color="#d4e8d4"/></linearGradient>
+              <linearGradient id="mmtn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a7a5a"/><stop offset="100%" stop-color="#3a5a3a"/></linearGradient>
+              <linearGradient id="mgnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8a9e70"/><stop offset="100%" stop-color="#5a7040"/></linearGradient>
+            </defs>
+            <rect width="400" height="420" fill="url(#msky)"/>
+            <ellipse cx="200" cy="148" rx="130" ry="90" fill="url(#mmtn)" opacity="0.7"/>
+            <ellipse cx="320" cy="162" rx="90" ry="70" fill="#4a6a4a" opacity="0.6"/>
+            <ellipse cx="78" cy="167" rx="80" ry="65" fill="#3d5e3d" opacity="0.65"/>
+            <rect x="0" y="232" width="400" height="188" fill="url(#mgnd)"/>
+            <ellipse cx="200" cy="232" rx="230" ry="18" fill="#7a9060" opacity="0.8"/>
+            <g opacity="0.9"><rect x="18" y="128" width="9" height="112" fill="#3d2a1a"/><ellipse cx="23" cy="122" rx="24" ry="30" fill="#2d5a2d"/><ellipse cx="14" cy="140" rx="15" ry="21" fill="#3a6e3a"/><ellipse cx="32" cy="144" rx="17" ry="23" fill="#2d5a2d"/></g>
+            <g opacity="0.9"><rect x="354" y="118" width="10" height="122" fill="#3d2a1a"/><ellipse cx="360" cy="110" rx="29" ry="36" fill="#2d5a2d"/><ellipse cx="347" cy="128" rx="19" ry="26" fill="#3a6e3a"/><ellipse cx="373" cy="124" rx="21" ry="29" fill="#2d5a2d"/></g>
+            <g opacity="0.7"><rect x="318" y="153" width="7" height="87" fill="#3d2a1a"/><ellipse cx="322" cy="146" rx="21" ry="27" fill="#4a7a4a"/></g>
+            <g opacity="0.7"><rect x="58" y="163" width="7" height="77" fill="#3d2a1a"/><ellipse cx="62" cy="156" rx="19" ry="23" fill="#4a7a4a"/></g>
+            <rect x="128" y="190" width="144" height="88" rx="4" fill="#c8cec8" stroke="#a0a8a0" stroke-width="0.5"/>
+            <rect x="128" y="190" width="144" height="13" rx="4" fill="#b0b6b0"/>
+            <rect x="134" y="203" width="52" height="70" rx="2" fill="#a8b0a8"/>
+            <rect x="214" y="203" width="52" height="70" rx="2" fill="#a8b0a8"/>
+            <rect x="186" y="196" width="28" height="67" fill="#1a1a1a"/>
+            <rect x="188" y="198" width="24" height="63" rx="1" fill="#0f0f0f"/>
+            <text x="200" y="190" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="7.5" fill="#2a1a0a" letter-spacing="3">追慕堂</text>
+            <text x="152" y="232" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="12" fill="#3a3a3a">崇</text>
+            <text x="152" y="250" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="12" fill="#3a3a3a">祖</text>
+            <text x="248" y="232" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="12" fill="#3a3a3a">和</text>
+            <text x="248" y="250" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="12" fill="#3a3a3a">親</text>
+            <rect x="183" y="258" width="34" height="10" rx="1" fill="#888" opacity="0.35"/>
+            <rect x="157" y="278" width="86" height="17" rx="2" fill="#b0b8b0"/>
+            <rect x="161" y="276" width="78" height="5" rx="1" fill="#9a9e9a"/>
+            <circle cx="172" cy="287" r="5" fill="#e8a060"/><circle cx="184" cy="287" r="5" fill="#d04040"/><circle cx="196" cy="287" r="5" fill="#f0c040"/><circle cx="208" cy="287" r="5" fill="#f08840"/><circle cx="220" cy="287" r="5" fill="#70c870"/><circle cx="232" cy="286" r="4" fill="#c84040"/>
+            <rect x="86" y="224" width="22" height="56" rx="2" fill="#2a2a2a"/>
+            <rect x="84" y="220" width="26" height="7" rx="3" fill="#3a3a3a"/>
+            <text x="97" y="240" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="5.5" fill="#c8c0a0" letter-spacing="1">宜寧</text>
+            <text x="97" y="250" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="5.5" fill="#c8c0a0">南氏</text>
+            <text x="97" y="260" text-anchor="middle" font-family="Noto Serif KR,serif" font-size="5" fill="#a09880">十八世</text>
+            <ellipse cx="312" cy="268" rx="48" ry="27" fill="#6a8050"/>
+            <rect x="270" y="265" width="80" height="16" rx="4" fill="#8a9878" stroke="#6a7858" stroke-width="0.5"/>
+            <ellipse cx="312" cy="292" rx="52" ry="8" fill="#5a7045" opacity="0.4"/>
+            <rect x="0" y="300" width="400" height="120" fill="#5a7040" opacity="0.3"/>
+            <g opacity="0.25"><rect x="143" y="306" width="3" height="19" fill="#3d2a1a"/><ellipse cx="145" cy="303" rx="9" ry="11" fill="#4a7040"/><rect x="163" y="310" width="3" height="16" fill="#3d2a1a"/><ellipse cx="165" cy="307" rx="8" ry="10" fill="#4a7040"/><rect x="232" y="312" width="3" height="14" fill="#3d2a1a"/><ellipse cx="234" cy="309" rx="8" ry="9" fill="#4a7040"/></g>
+          </svg>
+
+          <div style="position:absolute;top:10px;left:0;right:0;padding:12px 16px;background:linear-gradient(to bottom,rgba(8,14,6,0.75) 0%,transparent 100%)">
+            <div style="font-family:'Noto Serif KR',serif;font-size:15px;color:#f0d878;letter-spacing:0.12em">秋 潭 公 園</div>
+            <div style="font-size:10px;color:rgba(240,216,120,0.55);margin-top:2px;letter-spacing:0.06em">宜寧南氏 沙川伯派 崇祖公園</div>
+          </div>
+
+          <div id="hs-shrine" class="mem-hotspot" style="left:46%;top:46%" onclick="App.showMemorialPopup('shrine')"><div class="mem-dot"></div></div>
+          <div id="hs-stele"  class="mem-hotspot" style="left:22%;top:52%" onclick="App.showMemorialPopup('stele')"><div class="mem-dot"></div></div>
+          <div id="hs-altar"  class="mem-hotspot" style="left:47%;top:64%" onclick="App.showMemorialPopup('altar')"><div class="mem-dot"></div></div>
+          <div id="hs-tomb"   class="mem-hotspot" style="left:76%;top:58%" onclick="App.showMemorialPopup('tomb')"><div class="mem-dot"></div></div>
+
+          <div style="position:absolute;bottom:12px;left:16px;right:16px">
+            <div style="display:inline-block;background:rgba(160,120,30,0.3);border:0.5px solid rgba(160,120,30,0.5);border-radius:20px;padding:4px 12px;font-size:10px;color:#d4b860;font-family:'Noto Serif KR',serif">춘계 시제 현장</div>
+            <div style="font-size:10px;color:rgba(200,180,100,0.45);margin-top:5px;letter-spacing:0.04em">빛나는 점을 터치하여 둘러보세요</div>
           </div>
         </div>
-      </div>
-      <div class="section">
-        <div class="card-moss">
-          <div style="font-family:var(--font-serif);font-size:16px;margin-bottom:4px">추담공원</div>
-          <div style="font-size:12px;opacity:0.7">우리 가문의 추모공원</div>
-          <div style="margin-top:16px;display:flex;gap:12px">
-            <button class="btn btn-sm" style="background:rgba(248,245,239,0.15);color:var(--paper);border:0.5px solid rgba(248,245,239,0.3)">
-              오시는 길
+
+        <div style="padding:16px 16px 0">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button class="mem-quick-btn" onclick="App.showMemorialPopup('guide')">
+              <div class="mem-quick-icon">🗺</div>
+              <div class="mem-quick-label">오시는 길</div>
             </button>
-            <button class="btn btn-sm" style="background:rgba(248,245,239,0.15);color:var(--paper);border:0.5px solid rgba(248,245,239,0.3)">
-              납골당 위치
+            <button class="mem-quick-btn" onclick="App.showMemorialPopup('board')">
+              <div class="mem-quick-icon">📋</div>
+              <div class="mem-quick-label">추모 게시판</div>
+            </button>
+            <button class="mem-quick-btn" onclick="App.showMemorialPopup('jesa')">
+              <div class="mem-quick-icon">🕯</div>
+              <div class="mem-quick-label">기제사 일정</div>
+            </button>
+            <button class="mem-quick-btn" onclick="App.navigate('home')">
+              <div class="mem-quick-icon">🌳</div>
+              <div class="mem-quick-label">가계도 보기</div>
             </button>
           </div>
         </div>
-      </div>
-      <div class="section">
-        <div class="section-title">안치 현황</div>
-        <div id="memorial-list">
-          <div class="text-center text-muted" style="padding:40px 0">
-            <div style="font-size:28px;margin-bottom:8px">🪔</div>
-            등록된 안치 정보가 없습니다
+
+        <div id="memorial-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(8,14,6,0.88);z-index:200;align-items:flex-end;justify-content:center">
+          <div id="memorial-popup-sheet" style="background:#1a2318;border-radius:20px 20px 0 0;border-top:0.5px solid rgba(180,160,80,0.3);padding:20px;width:100%;max-width:480px;max-height:70dvh;overflow-y:auto">
+            <div style="width:36px;height:4px;background:rgba(180,160,80,0.3);border-radius:2px;margin:0 auto 16px"></div>
+            <button onclick="App.closeMemorialPopup()" style="position:absolute;top:16px;right:16px;width:28px;height:28px;background:rgba(180,160,80,0.15);border:none;border-radius:50%;color:#c8b060;font-size:14px;cursor:pointer">✕</button>
+            <div id="memorial-popup-content"></div>
           </div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-title">추모 게시판</div>
-        <div class="card">
-          <div class="text-muted text-center" style="padding:20px 0">
-            <div style="font-size:24px;margin-bottom:8px">📝</div>
-            가족들과 추모 기록을 나눠보세요
-          </div>
-          <button class="btn btn-ghost w-full mt-12">글 작성하기</button>
         </div>
       </div>
     `;
-    this.loadMemorialList();
+  },
+
+  showMemorialPopup(type) {
+    const contents = {
+      shrine: {
+        title: '追慕堂', sub: '숭조화친 · 崇祖和親',
+        rows: [['위치','추담공원 중앙'],['문중','의령남씨 사천백파'],['특징','숭조·화친 정신']],
+        text: '조상을 숭상하고 친족이 화목하게 지낸다는 뜻의 崇祖和親을 표방하는 우리 문중의 추모 공간입니다.'
+      },
+      stele: {
+        title: '十八世 碩頤公 비석', sub: '宜寧南氏 沙川伯派',
+        rows: [['세대','18세손'],['파','사천백파 夏後孫'],['비문','碩頤 夏後孫 崇祖公園']],
+        text: '18세 석이공의 후손들이 세운 숭조공원 기념비입니다. 사천백파의 뿌리를 기리는 공간입니다.'
+      },
+      altar: {
+        title: '시제 상석', sub: '춘계 시제 · 春季 時祭',
+        rows: [['시기','매년 춘계'],['참여','문중 전체'],['제수','과일·어물·떡 등']],
+        text: '매년 봄 문중 전체가 모여 조상님께 제를 올리는 시제 상석입니다.'
+      },
+      tomb: {
+        title: '선산 묘역', sub: '조상님의 안식처',
+        rows: [['형식','전통 봉분'],['관리','춘추 벌초'],['위치','추담공원 동편 산록']],
+        text: '봉분 형태로 조성된 선산 묘역입니다. 봄·가을 벌초 및 시제를 봉행합니다.'
+      },
+      guide: {
+        title: '오시는 길', sub: '추담공원 찾아오기',
+        rows: [['주소','등록 예정'],['주차','공원 내 주차장'],['대중교통','등록 예정']],
+        text: '추담공원으로 오시는 길 안내입니다. 상세 주소와 교통 정보는 문중에 문의해 주세요.'
+      },
+      board: {
+        title: '추모 게시판', sub: '가족들의 이야기',
+        rows: [],
+        text: '가족들과 조상님에 대한 추모 기록을 나누는 공간입니다. 게시판 기능은 다음 업데이트에서 추가됩니다.'
+      },
+      jesa: {
+        title: '기제사 일정', sub: '문중 연간 행사',
+        rows: [['춘계 시제','매년 봄'],['추계 시제','매년 가을'],['기제사','음력 기준']],
+        text: '문중의 연간 제례 일정입니다. 정확한 날짜는 문중 공지를 통해 안내됩니다.'
+      }
+    };
+    const c = contents[type];
+    if (!c) return;
+    const overlay = document.getElementById('memorial-popup-overlay');
+    const content = document.getElementById('memorial-popup-content');
+    content.innerHTML = \`
+      <div style="font-family:'Noto Serif KR',serif;font-size:19px;color:#f0d878;margin-bottom:3px;font-weight:500">\${c.title}</div>
+      <div style="font-size:11px;color:rgba(200,180,100,0.6);margin-bottom:14px;letter-spacing:0.05em">\${c.sub}</div>
+      \${c.rows.length ? '<div style="height:0.5px;background:rgba(180,160,80,0.2);margin-bottom:12px"></div>' : ''}
+      \${c.rows.map(r => \`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid rgba(180,160,80,0.1)"><span style="color:rgba(200,180,100,0.55)">\${r[0]}</span><span style="color:#d4c080;font-family:'Noto Serif KR',serif">\${r[1]}</span></div>\`).join('')}
+      <div style="font-size:12px;color:rgba(200,180,100,0.7);line-height:1.75;margin-top:14px;font-family:'Noto Serif KR',serif">\${c.text}</div>
+    \`;
+    overlay.style.display = 'flex';
+    overlay.onclick = (e) => { if(e.target === overlay) App.closeMemorialPopup(); };
+  },
+
+  closeMemorialPopup() {
+    document.getElementById('memorial-popup-overlay').style.display = 'none';
   },
 
   async loadMemorialList() {
@@ -484,19 +591,18 @@ const App = {
     const persons = await DB.getAllPersons(20);
     const deceased = persons.filter(p => p.memorialLocation);
     if (!deceased.length) return;
-    el.innerHTML = deceased.map(p => `
-      <div class="person-item" onclick="App.showPersonDetail(${JSON.stringify(p).replace(/"/g,'&quot;')})">
-        <div class="person-avatar deceased">${(p.name || '미')[0]}</div>
+    el.innerHTML = deceased.map(p => \`
+      <div class="person-item" onclick="App.showPersonDetail(\${JSON.stringify(p).replace(/"/g,'&quot;')})">
+        <div class="person-avatar deceased">\${(p.name || '미')[0]}</div>
         <div style="flex:1">
-          <div class="person-name">${p.name || '미상'}</div>
-          <div class="person-meta">${p.generation || '?'}세 · ${p.birthYear || '?'}년 ~ ${p.deathYear || '?'}년</div>
-          ${p.memorialLocation ? `<div class="person-meta" style="color:var(--moss);margin-top:2px">📍 ${p.memorialLocation}</div>` : ''}
+          <div class="person-name">\${p.name || '미상'}</div>
+          <div class="person-meta">\${p.generation || '?'}세 · \${p.birthYear || '?'}년 ~ \${p.deathYear || '?'}년</div>
+          \${p.memorialLocation ? \`<div class="person-meta" style="color:var(--moss);margin-top:2px">\${p.memorialLocation}</div>\` : ''}
         </div>
       </div>
-    `).join('');
+    \`).join('');
   },
 
-  // ── Clan Page ─────────────────────────────────
   renderClan() {
     document.getElementById('page-container').innerHTML = `
       <div class="page-header">
