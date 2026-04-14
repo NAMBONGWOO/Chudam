@@ -93,11 +93,16 @@ const App = {
     document.getElementById('auth-form-area').innerHTML = `
       <div class="form-group">
         <label class="form-label">이메일</label>
-        <input type="email" id="login-email" class="form-input" placeholder="email@example.com" />
+        <input type="email" id="login-email" class="form-input" placeholder="email@example.com" autocomplete="email" />
       </div>
       <div class="form-group">
         <label class="form-label">비밀번호</label>
-        <input type="password" id="login-pw" class="form-input" placeholder="비밀번호 입력" />
+        <div style="position:relative">
+          <input type="password" id="login-pw" class="form-input" placeholder="비밀번호 입력" autocomplete="current-password" style="padding-right:44px" />
+          <button type="button" id="toggle-login-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink-4);padding:4px">
+            <svg id="eye-login" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
       <button class="btn btn-primary mt-16" id="btn-login">로그인</button>
       <div class="auth-divider mt-16">또는</div>
@@ -107,6 +112,13 @@ const App = {
       </button>
       <div id="auth-error" class="text-center mt-12" style="color:var(--rust);font-size:13px;display:none"></div>
     `;
+    // 비밀번호 마스킹 토글
+    document.getElementById('toggle-login-pw').addEventListener('click', () => {
+      const pw = document.getElementById('login-pw');
+      const isText = pw.type === 'text';
+      pw.type = isText ? 'password' : 'text';
+      document.getElementById('eye-login').style.opacity = isText ? '1' : '0.4';
+    });
     document.getElementById('btn-login').addEventListener('click', async () => {
       const email = document.getElementById('login-email').value.trim();
       const pw = document.getElementById('login-pw').value;
@@ -126,72 +138,104 @@ const App = {
 
   renderSignupForm() {
     document.getElementById('auth-form-area').innerHTML = `
+      <div style="background:var(--moss-pale);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--moss);line-height:1.6">
+        추담 남석하 할아버지의 후손이시면 가입해 주세요.<br/>
+        <span style="color:var(--ink-3)">본관·파는 가입 후 관리자가 연결해 드립니다.</span>
+      </div>
       <div class="form-group">
         <label class="form-label">성명 <span class="required">*</span></label>
-        <input type="text" id="su-name" class="form-input" placeholder="홍길동" />
+        <input type="text" id="su-name" class="form-input" placeholder="예) 남○○" autocomplete="name" />
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">본관 <span class="required">*</span></label>
-          <input type="text" id="su-bongwan" class="form-input" placeholder="예) 안동" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">파 <span class="required">*</span></label>
-          <input type="text" id="su-pa" class="form-input" placeholder="예) 충무공파" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">세수(世) <span class="required">*</span></label>
-          <input type="number" id="su-saesu" class="form-input" placeholder="예) 8" min="1" max="30" />
-          <div class="form-hint">시조로부터 몇 번째 세대</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">대손(代孫)</label>
-          <input type="number" id="su-daeson" class="form-input" placeholder="자동계산" readonly style="background:var(--paper-2);color:var(--ink-3)" />
-        </div>
+      <div class="form-group">
+          <label class="form-label">출생연도 <span class="required">*</span></label>
+          <input type="number" id="su-birthyear" class="form-input" placeholder="예) 1975" min="1900" max="2025" />
       </div>
       <div class="form-group">
         <label class="form-label">이메일 <span class="required">*</span></label>
-        <input type="email" id="su-email" class="form-input" placeholder="email@example.com" />
+        <input type="email" id="su-email" class="form-input" placeholder="email@example.com" autocomplete="email" />
       </div>
       <div class="form-group">
         <label class="form-label">비밀번호 <span class="required">*</span></label>
-        <input type="password" id="su-pw" class="form-input" placeholder="6자 이상" />
+        <div style="position:relative">
+          <input type="password" id="su-pw" class="form-input" placeholder="6자 이상" style="padding-right:44px" />
+          <button type="button" id="toggle-su-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink-4);padding:4px">
+            <svg id="eye-su" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
-      <button class="btn btn-primary mt-16" id="btn-signup">회원가입</button>
+      <div class="form-group">
+        <label class="form-label">비밀번호 확인 <span class="required">*</span></label>
+        <div style="position:relative">
+          <input type="password" id="su-pw2" class="form-input" placeholder="비밀번호 재입력" style="padding-right:44px" />
+          <button type="button" id="toggle-su-pw2" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink-4);padding:4px">
+            <svg id="eye-su2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div id="pw-match-hint" class="form-hint" style="display:none"></div>
+      </div>
+      <button class="btn btn-primary mt-16" id="btn-signup">가입하기</button>
       <div id="auth-error" class="text-center mt-12" style="color:var(--rust);font-size:13px;display:none"></div>
     `;
-    // 세수 입력 시 대손 자동계산
-    document.getElementById('su-saesu').addEventListener('input', (e) => {
-      const saesu = parseInt(e.target.value) || 0;
-      document.getElementById('su-daeson').value = saesu > 0 ? saesu - 1 : '';
-    });
-    document.getElementById('btn-signup').addEventListener('click', async () => {
-      const name = document.getElementById('su-name').value.trim();
-      const bongwan = document.getElementById('su-bongwan').value.trim();
-      const pa = document.getElementById('su-pa').value.trim();
-      const saesu = parseInt(document.getElementById('su-saesu').value) || 0;
-      const email = document.getElementById('su-email').value.trim();
+    // 비밀번호 마스킹 토글
+    const togglePw = (inputId, eyeId) => {
+      const el = document.getElementById(inputId);
+      const eye = document.getElementById(eyeId);
+      const isText = el.type === 'text';
+      el.type = isText ? 'password' : 'text';
+      eye.style.opacity = isText ? '1' : '0.4';
+    };
+    document.getElementById('toggle-su-pw').addEventListener('click', () => togglePw('su-pw', 'eye-su'));
+    document.getElementById('toggle-su-pw2').addEventListener('click', () => togglePw('su-pw2', 'eye-su2'));
+
+    // 비밀번호 일치 실시간 확인
+    const checkMatch = () => {
       const pw = document.getElementById('su-pw').value;
-      if (!name || !bongwan || !pa || !saesu || !email || !pw) {
-        this.showAuthError('모든 필수 항목을 입력해 주세요.'); return;
+      const pw2 = document.getElementById('su-pw2').value;
+      const hint = document.getElementById('pw-match-hint');
+      if (!pw2) { hint.style.display = 'none'; return; }
+      hint.style.display = 'block';
+      if (pw === pw2) {
+        hint.style.color = 'var(--moss)';
+        hint.textContent = '✓ 비밀번호가 일치합니다';
+      } else {
+        hint.style.color = 'var(--rust)';
+        hint.textContent = '비밀번호가 일치하지 않습니다';
+      }
+    };
+    document.getElementById('su-pw').addEventListener('input', checkMatch);
+    document.getElementById('su-pw2').addEventListener('input', checkMatch);
+
+    document.getElementById('btn-signup').addEventListener('click', async () => {
+      const name    = document.getElementById('su-name').value.trim();
+      const birthYear = parseInt(document.getElementById('su-birthyear').value) || 0;
+      const email   = document.getElementById('su-email').value.trim();
+      const pw      = document.getElementById('su-pw').value;
+      const pw2     = document.getElementById('su-pw2').value;
+      if (!name || !birthYear || !email || !pw) {
+        this.showAuthError('모든 항목을 입력해 주세요.'); return;
+      }
+      if (pw !== pw2) {
+        this.showAuthError('비밀번호가 일치하지 않습니다.'); return;
+      }
+      if (pw.length < 6) {
+        this.showAuthError('비밀번호는 6자 이상이어야 합니다.'); return;
       }
       try {
         document.getElementById('btn-signup').textContent = '처리 중...';
         const user = await Auth.signUp(email, pw, name);
         await DB.saveUserProfile(user.uid, {
-          name, bongwan, pa, saesu, daeson: saesu - 1, email,
+          name, birthYear,
+          bongwan: '의령', pa: '사천백파', email,
           role: 'member', createdAt: new Date().toISOString()
         });
       } catch (e) {
         this.showAuthError(e.message || '회원가입에 실패했습니다.');
-        document.getElementById('btn-signup').textContent = '회원가입';
+        document.getElementById('btn-signup').textContent = '가입하기';
       }
     });
   },
 
-  showAuthError(msg) {
+    showAuthError(msg) {
     const el = document.getElementById('auth-error');
     if (el) { el.textContent = msg; el.style.display = 'block'; }
   },
@@ -436,7 +480,7 @@ const App = {
     document.getElementById('page-container').innerHTML = `
       <div style="position:relative;width:100%;background:#111a0f;min-height:calc(100dvh - 68px);overflow:hidden">
 
-        <div style="position:relative;width:100%;height:58dvh;overflow:hidden;cursor:pointer" id="memorial-scene">
+        <div style="position:relative;width:100%;height:clamp(300px, 58dvh, 520px);overflow:hidden;cursor:pointer" id="memorial-scene">
           <svg width="100%" viewBox="0 0 400 420" xmlns="http://www.w3.org/2000/svg" style="display:block">
             <defs>
               <linearGradient id="msky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ba8c4"/><stop offset="55%" stop-color="#b8d4e8"/><stop offset="100%" stop-color="#d4e8d4"/></linearGradient>
