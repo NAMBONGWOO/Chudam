@@ -1,7 +1,3 @@
-// ── Firebase Configuration ──────────────────────
-// TODO: 아래 값을 Firebase Console에서 복사한 실제 값으로 교체하세요
-// Firebase Console → 프로젝트 설정 → 내 앱 → SDK 설정 및 구성
-
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDXH8MZQshUdhFVCqx3C4Q2iCjY5H_Omxg",
   authDomain: "chudam-b36f1.firebaseapp.com",
@@ -17,9 +13,4 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Firestore 설정
-db.settings({ 
-  experimentalForceLongPolling: true  // 일부 네트워크 환경 호환성
-});
-
-console.log("🌲 추담공원 Firebase 초기화 완료");
+console.log("\ud83c\udf32 \ucd94\ub2f4\uacf5\uc6d0 Firebase \ucd08\uae30\ud654 \uc644\ub8cc");
