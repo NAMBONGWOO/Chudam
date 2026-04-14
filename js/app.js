@@ -533,13 +533,17 @@ const App = {
         const allPersons = await DB.getAllPersons(200);
         const parent = allPersons.find(p => p.id === parentId);
         const rootAncestorId = parent?.rootAncestorId || parentId;
+        const myNameSafe = this.userProfile?.name || Auth.currentUser?.displayName || '이름미입력';
+        if (!myNameSafe || myNameSafe === '이름미입력') {
+          throw new Error('이름 정보가 없습니다. 마이페이지에서 이름을 먼저 입력해 주세요.');
+        }
         const personId = await DB.savePerson({
-          name: this.userProfile.name,
+          name: myNameSafe,
           generation: myGen,
-          birthYear: this.userProfile.birthYear || null,
+          birthYear: this.userProfile?.birthYear || null,
           parentId, rootAncestorId,
-          bongwan: this.userProfile.bongwan || '의령',
-          pa: this.userProfile.pa || '사천백파',
+          bongwan: this.userProfile?.bongwan || '의령',
+          pa: this.userProfile?.pa || '사천백파',
           addedByUid: Auth.getUid(),
           linkedUid: Auth.getUid()
         });
