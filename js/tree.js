@@ -73,9 +73,24 @@ const Tree = {
     const byId = {};
     persons.forEach(p => byId[p.id] = { ...p });
 
-    // 세대별 그룹 (부모별로 묶음)
+    // 배우자로 연결된 ID 집합 (독립 노드로 표시하지 않음)
+    const spouseRenderedIds = new Set();
+    persons.forEach(p => {
+      if (p.spouseId && byId[p.spouseId]) {
+        // spouseId가 있는 쪽의 배우자는 인라인으로만 표시
+        // 성별이 F(여성)이면 배우자 인라인 표시
+        if (byId[p.spouseId].gender === 'F' || !byId[p.spouseId].gender) {
+          spouseRenderedIds.add(p.spouseId);
+        } else {
+          spouseRenderedIds.add(p.id);
+        }
+      }
+    });
+
+    // 세대별 그룹 (배우자 인라인 렌더링 대상 제외)
     const byGen = {};
     persons.forEach(p => {
+      if (spouseRenderedIds.has(p.id)) return; // 배우자 인라인 → 독립 노드 제외
       const g = p.generation || 1;
       if (!byGen[g]) byGen[g] = [];
       byGen[g].push(p);
@@ -315,26 +330,40 @@ const Tree = {
           g.appendChild(spLabel);
         }
 
+        // 왼쪽 성별 컬러 바 (FamilySearch 스타일)
+        const genderColor = n.gender === 'F' ? '#d4537e' : '#378ADD';
+        const barColor = isSelf ? 'rgba(255,255,255,0.3)' : isSpouse ? '#d4537e' : (n.gender === 'F' ? '#d4537e' : '#378ADD');
+        if (!isGhost) {
+          const bar = document.createElementNS(svgNS, 'rect');
+          bar.setAttribute('x', rx);
+          bar.setAttribute('y', ry);
+          bar.setAttribute('width', '4');
+          bar.setAttribute('height', isSpouse ? String(this.SPOUSE_H) : String(this.NODE_H));
+          bar.setAttribute('rx', '7');
+          bar.setAttribute('fill', barColor);
+          g.appendChild(bar);
+        }
+
         const nameEl = document.createElementNS(svgNS, 'text');
-        nameEl.setAttribute('x', n.x);
-        nameEl.setAttribute('y', isSpouse ? ry+24 : ry+20);
-        nameEl.setAttribute('text-anchor', 'middle');
+        nameEl.setAttribute('x', rx + 12);
+        nameEl.setAttribute('y', isSpouse ? ry+18 : ry+20);
+        nameEl.setAttribute('text-anchor', 'start');
         nameEl.setAttribute('font-family', 'Noto Serif KR, serif');
-        nameEl.setAttribute('font-size', isSpouse ? '11' : '12');
+        nameEl.setAttribute('font-size', isSpouse ? '11' : '13');
         nameEl.setAttribute('font-weight', '500');
-        nameEl.setAttribute('fill', isSelf?'#F8F5EF':isRoot||isSpouse?'#9A7B3A':isSide?'#AAAAA0':'#1C1C1A');
+        nameEl.setAttribute('fill', isSelf?'#F8F5EF':isSide?'#AAAAA0':'#1C1C1A');
         nameEl.textContent = n.name || '미상';
         g.appendChild(nameEl);
 
         const sub = document.createElementNS(svgNS, 'text');
-        sub.setAttribute('x', n.x);
-        sub.setAttribute('y', isSpouse ? ry+37 : ry+35);
-        sub.setAttribute('text-anchor', 'middle');
+        sub.setAttribute('x', rx + 12);
+        sub.setAttribute('y', isSpouse ? ry+32 : ry+36);
+        sub.setAttribute('text-anchor', 'start');
         sub.setAttribute('font-family', 'Noto Sans KR, sans-serif');
         sub.setAttribute('font-size', '9');
         sub.setAttribute('fill', isSelf?'rgba(248,245,239,0.6)':'#9E9E95');
         const yr = n.birthYear ? String(n.birthYear) : '';
-        sub.textContent = (!isSpouse ? n.generation+'세' : '') + (yr?' · '+yr:'') + (n.deathYear?'~'+n.deathYear:'');
+        sub.textContent = (yr ? yr+'년' : '') + (n.deathYear ? '~'+n.deathYear : (yr?'~생존':''));
         g.appendChild(sub);
 
         g.addEventListener('click', () => App.showPersonDetail(n));

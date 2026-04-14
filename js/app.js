@@ -574,39 +574,19 @@ const App = {
     // ── Home (가계도) ──────────────────────────────
   async renderHome() {
     const p = this.userProfile;
-    const selfGen = p?.saesu || 8; // 기본 8세대
+    const selfGen = p?.saesu || 8;
     const el = document.getElementById('page-container');
     el.innerHTML = `
-      <div class="page-header">
-        <div class="page-header-inner">
-          <div>
-            <div class="page-title">나의 가계</div>
-            <div class="page-subtitle">${p?.bongwan || ''}${p?.pa ? ' · '+p.pa : ''}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            ${p?.role === 'admin' ? '<span class="admin-badge">관리자</span>' : ''}
-          </div>
+      <div style="display:flex;flex-direction:column;height:calc(100dvh - var(--nav-h))">
+        <!-- 최소화된 상단 바 -->
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:0.5px solid var(--border);background:var(--paper);flex-shrink:0">
+          <div class="person-avatar" style="width:28px;height:28px;font-size:12px;flex-shrink:0">${(p?.name||'나')[0]}</div>
+          <span style="font-family:var(--font-serif);font-size:13px;font-weight:500">${p?.name||'—'}</span>
+          <span style="font-size:11px;color:var(--ink-4)">${p?.bongwan||''}</span>
+          <span class="gen-badge" style="margin-left:auto;font-size:10px;padding:1px 7px">${selfGen}세</span>
         </div>
-      </div>
-      <div id="match-alert-area" style="padding:12px 20px 0"></div>
-
-      <!-- 나의 위치 - 간소화 -->
-      <div style="padding:8px 16px 0;display:flex;align-items:center;gap:10px">
-        <div class="person-avatar" style="width:34px;height:34px;font-size:14px;flex-shrink:0">${(p?.name||'나')[0]}</div>
-        <div style="flex:1;min-width:0">
-          <span style="font-family:var(--font-serif);font-size:14px;font-weight:500">${p?.name||'—'}</span>
-          <span style="font-size:12px;color:var(--ink-3);margin-left:6px">${p?.bongwan||''}</span>
-        </div>
-        <span class="gen-badge" style="flex-shrink:0">${selfGen}세</span>
-      </div>
-
-      <!-- 가계도 영역 -->
-      <div class="section" style="padding-top:16px">
-        <div class="section-title" style="margin-bottom:8px">
-          가계도
-          <span style="font-size:11px;color:var(--ink-4);font-weight:400;margin-left:4px">회색 노드를 눌러 정보를 추가하세요</span>
-        </div>
-        <div id="tree-wrap" style="background:var(--paper-2);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:auto;height:64dvh;position:relative;cursor:grab">
+        <!-- 가계도 전체 영역 -->
+        <div id="tree-wrap" style="flex:1;overflow:auto;background:var(--paper-2);position:relative;cursor:grab">
           <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-4)">
             <div class="text-center">
               <div style="font-size:28px;margin-bottom:8px">🌲</div>
@@ -614,24 +594,23 @@ const App = {
             </div>
           </div>
         </div>
-        <!-- 범례 -->
-        <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3)">
-            <div style="width:14px;height:14px;background:#2C3A2B;border-radius:3px"></div> 나
+        <!-- 범례 (하단 고정) -->
+        <div style="display:flex;gap:14px;padding:6px 14px;background:var(--paper);border-top:0.5px solid var(--border);flex-shrink:0;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--ink-3)">
+            <div style="width:12px;height:12px;background:#2C3A2B;border-radius:2px"></div>나
           </div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3)">
-            <div style="width:14px;height:14px;background:#F5EDD8;border:1px solid rgba(154,123,58,0.4);border-radius:3px"></div> 7대조
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--ink-3)">
+            <div style="width:12px;height:12px;background:#F5EDD8;border:1px solid rgba(154,123,58,0.4);border-radius:2px"></div>7대조
           </div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3)">
-            <div style="width:14px;height:14px;background:#EDE8DF;border-radius:3px"></div> 작고하신 분
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--ink-3)">
+            <div style="width:12px;height:12px;background:#EDE8DF;border-radius:2px"></div>작고하신 분
           </div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3)">
-            <div style="width:14px;height:14px;border:1px dashed rgba(60,55,45,0.3);border-radius:3px;background:rgba(240,235,224,0.5)"></div> 미입력
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--ink-3)">
+            <div style="width:12px;height:12px;border:1px dashed rgba(60,55,45,0.3);border-radius:2px;background:rgba(240,235,224,0.5)"></div>미입력
           </div>
         </div>
       </div>
     `;
-
     await this.loadTree();
     if (p) this.checkMatchAlerts();
   },
@@ -2067,56 +2046,34 @@ const App = {
 
   // ── Person Detail Sheet ───────────────────────
   showPersonDetail(person) {
-    let sheet = document.querySelector('.bottom-sheet');
-    if (!sheet) {
-      sheet = document.createElement('div');
-      sheet.className = 'bottom-sheet';
-      document.body.appendChild(sheet);
-    }
-    let overlay = document.querySelector('.sheet-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'sheet-overlay';
-      document.body.appendChild(overlay);
-    }
-
-    sheet.innerHTML = `
-      <div class="bottom-sheet-handle"></div>
-      <div class="flex-center gap-12 mb-16">
-        <div class="person-avatar" style="width:52px;height:52px;font-size:20px">${(person.name || '?')[0]}</div>
-        <div>
-          <div style="font-family:var(--font-serif);font-size:20px;font-weight:500">${person.name || '미상'}</div>
-          ${person.hanja ? `<div style="font-size:14px;color:var(--gold)">${person.hanja}</div>` : ''}
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:12px">
-        <div class="person-item">
-          <div style="width:64px;color:var(--ink-3);font-size:13px">세대</div>
-          <div>${person.generation || '?'}세</div>
-        </div>
-        <div class="person-item">
-          <div style="width:64px;color:var(--ink-3);font-size:13px">생몰연도</div>
-          <div>${person.birthYear || '미상'} ~ ${person.deathYear || '미상'}</div>
-        </div>
-        ${person.memorialLocation ? `
-        <div class="person-item">
-          <div style="width:64px;color:var(--ink-3);font-size:13px">안치 위치</div>
-          <div style="color:var(--moss)">${person.memorialLocation}</div>
-        </div>` : ''}
-        ${person.jesaDate ? `
-        <div class="person-item">
-          <div style="width:64px;color:var(--ink-3);font-size:13px">기제사</div>
-          <div>${person.jesaDate}</div>
-        </div>` : ''}
-      </div>
-    `;
-
-    overlay.classList.add('active');
-    setTimeout(() => sheet.classList.add('open'), 10);
-    overlay.onclick = () => {
-      sheet.classList.remove('open');
-      overlay.classList.remove('active');
-    };
+    document.querySelector('.person-popup')?.remove();
+    const popup = document.createElement('div');
+    popup.className = 'person-popup';
+    popup.style.cssText = 'position:fixed;bottom:calc(var(--nav-h) + 12px);left:50%;transform:translateX(-50%);'
+      + 'background:var(--paper);border:0.5px solid var(--border-strong);border-radius:var(--radius-lg);'
+      + 'padding:14px 18px;min-width:220px;max-width:320px;z-index:100;'
+      + 'box-shadow:0 4px 20px rgba(28,28,26,0.12)';
+    const gColor = person.gender === 'F' ? '#d4537e' : '#378ADD';
+    const gBg = person.gender === 'F' ? 'rgba(212,83,126,0.1)' : 'rgba(55,138,221,0.1)';
+    const yr = person.birthYear || '';
+    const dy = person.deathYear || '';
+    popup.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+      + '<div style="width:36px;height:36px;border-radius:50%;background:'+gBg+';display:flex;align-items:center;justify-content:center;font-family:var(--font-serif);font-size:16px;color:'+gColor+';flex-shrink:0">'+(person.name||'?')[0]+'</div>'
+      + '<div><div style="font-family:var(--font-serif);font-size:16px;font-weight:500">'+(person.name||'미상')+'</div>'
+      + (person.hanja?'<div style="font-size:12px;color:var(--gold)">'+person.hanja+'</div>':'')
+      + '</div>'
+      + '<button id="pp-close" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--ink-4);font-size:18px;line-height:1">×</button>'
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);display:flex;flex-direction:column;gap:5px">'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--ink-2)">'+(person.generation||'?')+'세</span><span>'+(yr?yr+'년':'')+(dy?'~'+dy:'')+'</span></div>'
+      + (person.memorialLocation?'<div style="color:var(--moss)">'+person.memorialLocation+'</div>':'')
+      + (person.jesaDate?'<div>기제사: '+person.jesaDate+'</div>':'')
+      + '</div>';
+    document.body.appendChild(popup);
+    popup.querySelector('#pp-close').addEventListener('click', () => popup.remove());
+    setTimeout(() => popup.remove(), 4000);
+    const close = (e) => { if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 100);
   },
 
   // ── Match Detail ──────────────────────────────
@@ -2140,7 +2097,79 @@ const App = {
   },
 
   renderProfileEdit() {
-    this.showToast('준비 중인 기능입니다');
+    const p = this.userProfile;
+    const el = document.getElementById('page-container');
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-header-inner">
+          <button onclick="App.navigate('profile')" style="background:none;border:none;cursor:pointer;color:var(--moss);font-size:14px">← 뒤로</button>
+          <div class="page-title">개인정보 수정</div>
+          <div></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="card">
+          <div class="form-group">
+            <label class="form-label">성명 <span class="required">*</span></label>
+            <input type="text" id="pe-name" class="form-input" value="${p?.name||''}" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">출생연도</label>
+              <input type="number" id="pe-birth" class="form-input" value="${p?.birthYear||''}" placeholder="예) 1975" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">세수(世)</label>
+              <input type="number" id="pe-saesu" class="form-input" value="${p?.saesu||''}" placeholder="예) 8" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">본관</label>
+              <input type="text" id="pe-bongwan" class="form-input" value="${p?.bongwan||'의령'}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">파</label>
+              <input type="text" id="pe-pa" class="form-input" value="${p?.pa||'사천백파'}" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">성별</label>
+            <select id="pe-gender" class="form-select">
+              <option value="">선택 안 함</option>
+              <option value="M" ${p?.gender==='M'?'selected':''}>남성</option>
+              <option value="F" ${p?.gender==='F'?'selected':''}>여성</option>
+            </select>
+          </div>
+          <button class="btn btn-primary mt-16" id="btn-save-profile">저장하기</button>
+          <div id="pe-result" style="text-align:center;margin-top:12px;font-size:13px;display:none"></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-save-profile').addEventListener('click', async () => {
+      const name = document.getElementById('pe-name').value.trim();
+      if (!name) { App.showToast('성명을 입력해 주세요'); return; }
+      const btn = document.getElementById('btn-save-profile');
+      btn.textContent = '저장 중...'; btn.disabled = true;
+      try {
+        const updates = {
+          name,
+          birthYear: parseInt(document.getElementById('pe-birth').value) || null,
+          saesu: parseInt(document.getElementById('pe-saesu').value) || null,
+          bongwan: document.getElementById('pe-bongwan').value.trim(),
+          pa: document.getElementById('pe-pa').value.trim(),
+          gender: document.getElementById('pe-gender').value || null
+        };
+        if (updates.saesu) updates.daeson = updates.saesu - 1;
+        await DB.saveUserProfile(Auth.getUid(), updates);
+        Object.assign(this.userProfile, updates);
+        App.showToast('저장 완료!');
+        setTimeout(() => App.navigate('profile'), 800);
+      } catch(e) {
+        App.showToast('저장 실패: ' + e.message);
+        btn.textContent = '저장하기'; btn.disabled = false;
+      }
+    });
   }
 };
 
