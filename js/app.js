@@ -708,12 +708,16 @@ const App = {
       <div class="section">
         <div class="section-title">등록된 인물 목록
           <button class="btn btn-sm btn-secondary" onclick="App.loadAdminList()" style="margin-left:8px;font-size:11px">새로고침</button>
+          <button class="btn btn-sm" onclick="App.bulkFixConnections()" style="margin-left:6px;font-size:11px;background:var(--gold-pale);color:var(--gold);border:0.5px solid rgba(154,123,58,0.3)">미연결 일괄수정</button>
         </div>
         <div id="admin-person-list">
           <div class="text-muted text-center" style="padding:20px 0">불러오는 중...</div>
         </div>
       </div>
     `;
+
+    // 먼저 인물 목록 로드 (드롭다운용 캐시 확보)
+    await this.loadAdminList();
 
     // 세대 버튼 클릭
     document.querySelectorAll('.gen-btn').forEach(btn => {
@@ -729,7 +733,6 @@ const App = {
         const gen = parseInt(btn.dataset.gen);
         document.getElementById('p-gen').value = gen;
 
-        // 1세(7대조)면 부모 선택 숨김, 나머지는 표시
         const parentGroup = document.getElementById('parent-group');
         if (gen === 1) {
           parentGroup.style.display = 'none';
@@ -742,7 +745,6 @@ const App = {
 
     // 등록 버튼
     document.getElementById('btn-add-person').addEventListener('click', () => this.submitAdminPerson());
-    await this.loadAdminList();
   },
 
   async loadParentOptions(parentGen) {
@@ -773,13 +775,20 @@ const App = {
       ? (document.getElementById('p-parent-select')?.value || null)
       : null;
 
-    // 루트 조상 ID 자동 계산
+    // 2세 이상인데 부모 미선택 시 경고
+    if (gen > 1 && !parentId) {
+      this._adminMsg('부모를 선택해 주세요. 부모가 없으면 먼저 윗 세대를 등록하세요.', false);
+      return;
+    }
+
+    // rootAncestorId: 부모의 rootAncestorId 자동 상속
     let rootAncestorId = null;
     if (gen === 1) {
       rootAncestorId = null; // 저장 후 자기 ID로 업데이트
     } else if (parentId) {
       const parent = this._adminPersons.find(p => p.id === parentId);
-      rootAncestorId = parent?.rootAncestorId || null;
+      // 부모의 루트 조상 ID 상속 (부모가 7대조면 부모 자신이 루트)
+      rootAncestorId = parent?.rootAncestorId || parent?.id || null;
     }
 
     const data = {
@@ -875,14 +884,61 @@ const App = {
   },
 
   async deletePerson(id, name) {
-    if (!confirm(`"${name}" 을(를) 삭제하시겠습니까?`)) return;
+    if (!confirm(name + ' 을(를) 삭제하시겠습니까?')) return;
     try {
       await db.collection('persons').doc(id).delete();
-      this.showToast(`${name} 삭제 완료`);
+      this.showToast(name + ' 삭제 완료');
       await this.loadAdminList();
     } catch(e) {
       this.showToast('삭제 실패: ' + e.message);
     }
+  },
+
+  // ── 미연결 인물 일괄 자동 연결 ─────────────────
+  async bulkFixConnections() {
+    const persons = this._adminPersons;
+    if (!persons.length) { this.showToast('먼저 목록을 새로고침 해주세요'); return; }
+
+    // 7대조(1세) 찾기
+    const root = persons.find(p => p.generation === 1);
+    if (!root) { this.showToast('7대조(1세)를 먼저 등록해주세요'); return; }
+    const rootId = root.id;
+
+    // 세대 순서대로 정렬
+    const sorted = [...persons].sort((a, b) => (a.generation||0) - (b.generation||0));
+
+    // ID → 인물 맵
+    const byId = {};
+    sorted.forEach(p => byId[p.id] = p);
+
+    let fixed = 0;
+    let failed = 0;
+
+    for (const p of sorted) {
+      // 이미 연결됐으면 스킵
+      if (p.rootAncestorId) continue;
+
+      try {
+        let rootAncestorId = rootId; // 기본값: 7대조
+
+        // parentId가 있으면 부모의 rootAncestorId 상속
+        if (p.parentId && byId[p.parentId]) {
+          rootAncestorId = byId[p.parentId].rootAncestorId || rootId;
+        }
+
+        await DB.updatePerson(p.id, { rootAncestorId });
+        byId[p.id].rootAncestorId = rootAncestorId; // 캐시 업데이트
+        fixed++;
+      } catch(e) {
+        failed++;
+        console.error('연결 실패:', p.name, e);
+      }
+    }
+
+    this.showToast(fixed + '명 연결 완료!' + (failed ? ' (' + failed + '명 실패)' : ''));
+    await this.loadAdminList();
+    // 가계도도 즉시 갱신
+    setTimeout(() => this.loadTree(), 500);
   },
 
   // ── Ancestor Setup ────────────────────────────
