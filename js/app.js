@@ -570,13 +570,17 @@ const App = {
     if (!c) return;
     const overlay = document.getElementById('memorial-popup-overlay');
     const content = document.getElementById('memorial-popup-content');
-    content.innerHTML = \`
-      <div style="font-family:'Noto Serif KR',serif;font-size:19px;color:#f0d878;margin-bottom:3px;font-weight:500">\${c.title}</div>
-      <div style="font-size:11px;color:rgba(200,180,100,0.6);margin-bottom:14px;letter-spacing:0.05em">\${c.sub}</div>
-      \${c.rows.length ? '<div style="height:0.5px;background:rgba(180,160,80,0.2);margin-bottom:12px"></div>' : ''}
-      \${c.rows.map(r => \`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid rgba(180,160,80,0.1)"><span style="color:rgba(200,180,100,0.55)">\${r[0]}</span><span style="color:#d4c080;font-family:'Noto Serif KR',serif">\${r[1]}</span></div>\`).join('')}
-      <div style="font-size:12px;color:rgba(200,180,100,0.7);line-height:1.75;margin-top:14px;font-family:'Noto Serif KR',serif">\${c.text}</div>
-    \`;
+    content.innerHTML = [
+      '<div style="font-family:Noto Serif KR,serif;font-size:19px;color:#f0d878;margin-bottom:3px;font-weight:500">' + c.title + '</div>',
+      '<div style="font-size:11px;color:rgba(200,180,100,0.6);margin-bottom:14px;letter-spacing:0.05em">' + c.sub + '</div>',
+      c.rows.length ? '<div style="height:0.5px;background:rgba(180,160,80,0.2);margin-bottom:12px"></div>' : '',
+      c.rows.map(function(r) {
+        return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:0.5px solid rgba(180,160,80,0.1)">'
+          + '<span style="color:rgba(200,180,100,0.55)">' + r[0] + '</span>'
+          + '<span style="color:#d4c080;font-family:Noto Serif KR,serif">' + r[1] + '</span></div>';
+      }).join(''),
+      '<div style="font-size:12px;color:rgba(200,180,100,0.72);line-height:1.75;margin-top:14px;font-family:Noto Serif KR,serif">' + c.text + '</div>'
+    ].join('');
     overlay.style.display = 'flex';
     overlay.onclick = (e) => { if(e.target === overlay) App.closeMemorialPopup(); };
   },
@@ -591,16 +595,15 @@ const App = {
     const persons = await DB.getAllPersons(20);
     const deceased = persons.filter(p => p.memorialLocation);
     if (!deceased.length) return;
-    el.innerHTML = deceased.map(p => \`
-      <div class="person-item" onclick="App.showPersonDetail(\${JSON.stringify(p).replace(/"/g,'&quot;')})">
-        <div class="person-avatar deceased">\${(p.name || '미')[0]}</div>
-        <div style="flex:1">
-          <div class="person-name">\${p.name || '미상'}</div>
-          <div class="person-meta">\${p.generation || '?'}세 · \${p.birthYear || '?'}년 ~ \${p.deathYear || '?'}년</div>
-          \${p.memorialLocation ? \`<div class="person-meta" style="color:var(--moss);margin-top:2px">\${p.memorialLocation}</div>\` : ''}
-        </div>
-      </div>
-    \`).join('');
+    el.innerHTML = deceased.map(function(p) {
+      return '<div class="person-item">'
+        + '<div class="person-avatar deceased">' + ((p.name || '미')[0]) + '</div>'
+        + '<div style="flex:1">'
+        + '<div class="person-name">' + (p.name || '미상') + '</div>'
+        + '<div class="person-meta">' + (p.generation || '?') + '세 · ' + (p.birthYear || '?') + '년 ~ ' + (p.deathYear || '?') + '년</div>'
+        + (p.memorialLocation ? '<div class="person-meta" style="color:var(--moss);margin-top:2px">' + p.memorialLocation + '</div>' : '')
+        + '</div></div>';
+    }).join('');
   },
 
   renderClan() {
