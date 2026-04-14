@@ -14,6 +14,8 @@ const App = {
       }, 600);
     }, 1800);
 
+    // 초대 링크 파라미터 확인
+    this.checkInviteParam();
     Auth.init();
     this.bindNav();
   },
@@ -82,6 +84,23 @@ const App = {
       </div>
     `;
     this.renderLoginForm();
+    // 초대 링크로 접속 시 회원가입 탭 자동 선택 + 배너 표시
+    const invite = this.getInviteInfo();
+    if (invite) {
+      document.getElementById('tab-signup').classList.add('active');
+      document.getElementById('tab-login').classList.remove('active');
+      this.renderSignupForm();
+      // 배너 삽입
+      const formArea = document.getElementById('auth-form-area');
+      if (formArea) {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'background:var(--moss);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px;display:flex;gap:12px;align-items:center';
+        banner.innerHTML = '<div style="font-size:20px">👨‍👩‍👧‍👦</div>'
+          + '<div><div style="font-family:var(--font-serif);font-size:14px;color:var(--paper);font-weight:500">' + invite.fromName + '님의 초대</div>'
+          + '<div style="font-size:11px;color:rgba(248,245,239,0.65);margin-top:2px">가입 후 가계도에 자동 연결됩니다</div></div>';
+        formArea.insertBefore(banner, formArea.firstChild);
+      }
+    }
     document.getElementById('tab-login').addEventListener('click', () => {
       document.getElementById('tab-login').classList.add('active');
       document.getElementById('tab-signup').classList.remove('active');
@@ -967,9 +986,129 @@ const App = {
         </div>
       </div>
       <div class="section">
+        <div class="section-title">가족 초대</div>
+        <div class="card-gold" style="cursor:pointer" onclick="App.showInviteSheet()">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;background:rgba(154,123,58,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🔗</div>
+            <div>
+              <div style="font-family:var(--font-serif);font-size:15px;font-weight:500;color:var(--ink)">가족 초대하기</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px">초대 링크를 공유하여 가계도를 함께 완성하세요</div>
+            </div>
+            <div style="color:var(--gold);font-size:18px;margin-left:auto">›</div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
         <button class="btn btn-secondary w-full" onclick="App.logout()">로그아웃</button>
       </div>
     `;
+  },
+
+  // ── 초대 링크 ──────────────────────────────────
+  showInviteSheet() {
+    const p = this.userProfile;
+    const base = window.location.origin + window.location.pathname;
+    const inviteUrl = base + '?invite=' + encodeURIComponent(Auth.getUid())
+      + '&from=' + encodeURIComponent(p?.name || '가족');
+
+    document.querySelector('.invite-modal')?.remove();
+    document.querySelector('.sheet-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.className = 'bottom-sheet invite-modal';
+    modal.innerHTML = '<div class="bottom-sheet-handle"></div>'
+      + '<div style="font-family:var(--font-serif);font-size:18px;font-weight:500;margin-bottom:4px">가족 초대하기</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);margin-bottom:20px">아래 링크를 카카오톡이나 문자로 공유하세요</div>'
+      + '<div style="background:var(--paper-2);border:0.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:14px;margin-bottom:16px">'
+      + '<div style="font-size:11px;color:var(--ink-4);margin-bottom:6px">초대 링크</div>'
+      + '<div id="invite-url-text" style="font-size:12px;color:var(--ink-2);word-break:break-all;line-height:1.5">' + inviteUrl + '</div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:10px">'
+      + '<button id="btn-copy-link" class="btn btn-primary" style="border-radius:var(--radius-lg)">링크 복사</button>'
+      + (navigator.share
+        ? '<button id="btn-share-link" class="btn btn-ghost">공유하기 (카카오톡 등)</button>'
+        : '')
+      + '</div>'
+      + '<div style="margin-top:20px;padding:14px;background:var(--moss-pale);border-radius:var(--radius-lg)">'
+      + '<div style="font-size:12px;color:var(--moss);line-height:1.65">'
+      + '링크를 받은 가족이 클릭하면<br/>'
+      + '<strong>' + (p?.name||'') + '</strong>님의 초대로 가입 화면이 열립니다.<br/>'
+      + '가입 후 아버지 이름으로 가계도에 자동 연결됩니다.'
+      + '</div></div>';
+
+    document.body.appendChild(modal);
+    overlay.classList.add('active');
+    setTimeout(() => modal.classList.add('open'), 10);
+
+    const close = () => {
+      modal.classList.remove('open');
+      overlay.classList.remove('active');
+      setTimeout(() => { modal.remove(); overlay.remove(); }, 350);
+    };
+    overlay.addEventListener('click', close);
+
+    document.getElementById('btn-copy-link').addEventListener('click', () => {
+      navigator.clipboard.writeText(inviteUrl).then(() => {
+        App.showToast('링크가 복사되었습니다!');
+        close();
+      }).catch(() => {
+        // fallback
+        const el = document.createElement('textarea');
+        el.value = inviteUrl;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        App.showToast('링크가 복사되었습니다!');
+        close();
+      });
+    });
+
+    const shareBtn = document.getElementById('btn-share-link');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        try {
+          await navigator.share({
+            title: '추담공원 가족 초대',
+            text: (p?.name||'가족') + '님이 추담공원 가계도에 초대했습니다.',
+            url: inviteUrl
+          });
+          close();
+        } catch(e) {
+          if (e.name !== 'AbortError') App.showToast('공유 실패: ' + e.message);
+        }
+      });
+    }
+  },
+
+  // ── 초대 링크 접속 처리 ───────────────────────
+  checkInviteParam() {
+    const params = new URLSearchParams(window.location.search);
+    const inviteUid = params.get('invite');
+    const fromName = params.get('from');
+    if (inviteUid && fromName) {
+      sessionStorage.setItem('inviteUid', inviteUid);
+      sessionStorage.setItem('inviteFrom', decodeURIComponent(fromName));
+      // URL 파라미터 제거 (히스토리 정리)
+      window.history.replaceState({}, '', window.location.pathname);
+      return { inviteUid, fromName: decodeURIComponent(fromName) };
+    }
+    return null;
+  },
+
+  getInviteInfo() {
+    const uid = sessionStorage.getItem('inviteUid');
+    const from = sessionStorage.getItem('inviteFrom');
+    return uid ? { inviteUid: uid, fromName: from } : null;
+  },
+
+  clearInviteInfo() {
+    sessionStorage.removeItem('inviteUid');
+    sessionStorage.removeItem('inviteFrom');
   },
 
   async logout() {
@@ -1295,6 +1434,24 @@ const App = {
         <input type="text" id="ep-jesa" class="form-input" value="${person.jesaDate || ''}" placeholder="예) 음력 3월 15일" />
       </div>
       <div class="form-group">
+        <label class="form-label">성별</label>
+        <select id="ep-gender" class="form-select">
+          <option value=""${!person.gender?' selected':''}>선택 안 함</option>
+          <option value="M"${person.gender==='M'?' selected':''}>남성</option>
+          <option value="F"${person.gender==='F'?' selected':''}>여성</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">배우자 연결 <span style="font-size:11px;color:var(--ink-4)">(같은 세대에서 선택)</span></label>
+        <select id="ep-spouse" class="form-select">
+          <option value="">— 배우자 없음 —</option>
+          ${this._adminPersons
+            .filter(p => p.generation === person.generation && p.id !== person.id)
+            .map(p => '<option value="' + p.id + '"' + (p.id === person.spouseId ? ' selected' : '') + '>' + p.name + (p.gender==='F'?' (여)':p.gender==='M'?' (남)':'') + '</option>')
+            .join('')}
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">부모 변경</label>
         <select id="ep-parent" class="form-select">
           <option value="">— 변경 안 함 —</option>
@@ -1342,7 +1499,13 @@ const App = {
           parentId
         };
 
+        const spouseId = document.getElementById('ep-spouse')?.value || null;
+        const gender = document.getElementById('ep-gender')?.value || null;
+        if (spouseId) updatedData.spouseId = spouseId;
+        if (gender) updatedData.gender = gender;
         await DB.updatePerson(personId, updatedData);
+        // 배우자도 역방향 연결
+        if (spouseId) await DB.updatePerson(spouseId, { spouseId: personId });
         this.showToast(name + ' 수정 완료!');
         close();
         await this.loadAdminList();
