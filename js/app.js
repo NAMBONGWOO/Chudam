@@ -319,14 +319,14 @@ const App = {
             const genLabel = p.generation === 1 ? '7대조' : p.generation + '세';
             const yr = p.birthYear ? p.birthYear + '년생' : '';
             const deathMark = p.deathYear ? ' · 작고' : '';
-            return '<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;'
-              + 'border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;'
-              + 'cursor:pointer;transition:all 0.15s;background:var(--paper)" '
-              + 'onclick="App.confirmParentLink('' + p.id + '','' + (p.name||'').replace(/'/g,"\'") + '',' + p.generation + ')" '
-              + 'onmouseover="this.style.background='var(--paper-2)';this.style.borderColor='var(--moss)'" '
-              + 'onmouseout="this.style.background='var(--paper)';this.style.borderColor='var(--border)'">'
+            const safeId = p.id;
+            const safeName = (p.name||'').replace(/["']/g,'');
+            return '<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--paper)" '
+              + 'data-pid="'+safeId+'" data-pname="'+safeName+'" data-pgen="'+p.generation+'" '
+              + 'onclick="App.confirmParentLink(this.dataset.pid,this.dataset.pname,+this.dataset.pgen)" '
+              + 'onmouseover="this.style.background=\'var(--paper-2)\'" '
+              + 'onmouseout="this.style.background=\'var(--paper)\'">'
               + '<div class="person-avatar" style="width:44px;height:44px;font-size:18px;'
-              + (p.deathYear ? 'background:var(--paper-3);color:var(--ink-3)' : 'background:var(--moss-pale);color:var(--moss)') + '">'
               + ((p.name||'?')[0]) + '</div>'
               + '<div style="flex:1">'
               + '<div style="font-family:var(--font-serif);font-size:16px;font-weight:500">' + (p.name||'미상') + '</div>'
@@ -1013,11 +1013,11 @@ const App = {
           <div class="form-group">
             <label class="form-label">이 분은 몇 세(世)입니까? <span class="required">*</span></label>
             <div style="display:flex;gap:8px;flex-wrap:wrap" id="gen-buttons">
-              ${[1,2,3,4,5,6,7,8,9,10].map(g => `
-                <button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="${g}"
-                  style="min-width:48px">
-                  ${g === 1 ? '1세<br><span style="font-size:9px">7대조</span>' : g+'세'}
-                </button>`).join('')}
+                \${[1,2,3,4,5,6,7,8,9,10].map(function(g){
+                return '<button type="button" class="btn btn-sm btn-secondary gen-btn" data-gen="'+g+'" style="min-width:48px">'
+                  + (g === 1 ? '1세<br><span style="font-size:9px">7대조</span>' : g+'세')
+                  + '</button>';
+              }).join('')}
             </div>
             <input type="hidden" id="p-gen" value="" />
             <div class="form-hint">7대조=1세, 6대조=2세, … 아버지=본인세수-1, 나=본인세수</div>
@@ -1444,25 +1444,41 @@ const App = {
         el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">등록된 회원 없음</div>';
         return;
       }
-      el.innerHTML = members.map(m => {
-        const roleColor = m.role === 'admin' ? 'var(--gold)' : 'var(--ink-4)';
-        const roleBg = m.role === 'admin' ? 'var(--gold-pale)' : 'var(--paper-2)';
-        return '<div class="person-item" style="padding:12px 0">'
-          + '<div class="person-avatar" style="width:38px;height:38px;font-size:15px">' + ((m.name||'?')[0]) + '</div>'
+      el.innerHTML = '';
+      members.forEach(function(m) {
+        const isAdmin = m.role === 'admin';
+        const isSelf = m.id === App.userProfile?.id;
+        const div = document.createElement('div');
+        div.className = 'person-item';
+        div.style.cssText = 'padding:12px 0';
+        div.innerHTML = '<div class="person-avatar" style="width:38px;height:38px;font-size:15px">' + ((m.name||'?')[0]) + '</div>'
           + '<div style="flex:1;min-width:0">'
           + '<div style="font-family:var(--font-serif);font-size:14px;font-weight:500">' + (m.name||'미상') + '</div>'
           + '<div class="person-meta" style="margin-top:2px">' + (m.email||'') + '</div>'
           + '<div style="margin-top:4px;display:flex;gap:6px;align-items:center">'
-          + '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:'+roleBg+';color:'+roleColor+'">' + (m.role||'member') + '</span>'
+          + '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + (isAdmin?'var(--gold-pale)':'var(--paper-2)') + ';color:' + (isAdmin?'var(--gold)':'var(--ink-4)') + '">' + (m.role||'member') + '</span>'
           + (m.birthYear ? '<span class="person-meta">' + m.birthYear + '년생</span>' : '')
           + '</div></div>'
-          + '<div style="display:flex;gap:4px">'
-          + '<button class="btn btn-sm" style="font-size:11px;color:var(--moss);background:none;border:0.5px solid var(--border-strong);padding:4px 10px;border-radius:6px" onclick="App.showEditMemberModal('' + m.id + '')">수정</button>'
-          + (m.id !== App.userProfile?.id
-            ? '<button class="btn btn-sm" style="font-size:11px;color:var(--rust);background:none;border:none;padding:4px 8px" onclick="App.deleteMember('' + m.id + '','' + (m.name||'') + '')">삭제</button>'
-            : '')
-          + '</div></div>';
-      }).join('');
+          + '<div style="display:flex;gap:4px"></div>';
+
+        const btnWrap = div.querySelector('div:last-child');
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm';
+        editBtn.style.cssText = 'font-size:11px;color:var(--moss);background:none;border:0.5px solid var(--border-strong);padding:4px 10px;border-radius:6px';
+        editBtn.textContent = '수정';
+        editBtn.addEventListener('click', function() { App.showEditMemberModal(m.id); });
+        btnWrap.appendChild(editBtn);
+
+        if (!isSelf) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn btn-sm';
+          delBtn.style.cssText = 'font-size:11px;color:var(--rust);background:none;border:none;padding:4px 8px';
+          delBtn.textContent = '삭제';
+          delBtn.addEventListener('click', function() { App.deleteMember(m.id, m.name); });
+          btnWrap.appendChild(delBtn);
+        }
+        el.appendChild(div);
+      });
     } catch(e) {
       el.innerHTML = '<div class="text-muted text-center" style="padding:20px 0">오류: ' + e.message + '</div>';
     }
@@ -1547,8 +1563,7 @@ const App = {
 
   // ── 회원 삭제 ────────────────────────────────
   async deleteMember(uid, name) {
-    if (!confirm((name||'이 회원') + '을(를) 삭제하시겠습니까?
-(Firebase Auth 계정은 별도로 삭제해야 합니다)')) return;
+    if (!confirm((name||'이 회원') + '을(를) 삭제하시겠습니까?')) return;
     try {
       await db.collection('users').doc(uid).delete();
       this.showToast((name||'회원') + ' 삭제 완료');
