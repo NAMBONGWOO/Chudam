@@ -480,8 +480,8 @@ const App = {
     document.getElementById('page-container').innerHTML = `
       <div style="position:relative;width:100%;background:#111a0f;min-height:calc(100dvh - 68px);overflow:hidden">
 
-        <div style="position:relative;width:100%;height:clamp(300px, 58dvh, 520px);overflow:hidden;cursor:pointer" id="memorial-scene">
-          <svg width="100%" viewBox="0 0 400 420" xmlns="http://www.w3.org/2000/svg" style="display:block">
+        <div style="position:relative;width:100%;overflow:hidden;cursor:pointer" id="memorial-scene">
+          <svg width="100%" viewBox="0 0 400 420" xmlns="http://www.w3.org/2000/svg" style="display:block;max-height:60vh;">
             <defs>
               <linearGradient id="msky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ba8c4"/><stop offset="55%" stop-color="#b8d4e8"/><stop offset="100%" stop-color="#d4e8d4"/></linearGradient>
               <linearGradient id="mmtn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a7a5a"/><stop offset="100%" stop-color="#3a5a3a"/></linearGradient>
