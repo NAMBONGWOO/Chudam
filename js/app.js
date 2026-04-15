@@ -141,7 +141,10 @@ const App = {
         </div>
       </div>
       <button class="btn btn-primary mt-16" id="btn-login">로그인</button>
-      <div class="auth-divider mt-16">또는</div>
+      <div style="text-align:right;margin-top:8px">
+        <button id="btn-forgot-pw" style="background:none;border:none;color:var(--ink-4);font-size:12px;cursor:pointer;text-decoration:underline">비밀번호를 잊으셨나요?</button>
+      </div>
+      <div class="auth-divider mt-8">또는</div>
       <button class="btn btn-secondary w-full" id="btn-google">
         <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
         Google로 로그인
@@ -169,6 +172,25 @@ const App = {
     });
     document.getElementById('btn-google').addEventListener('click', async () => {
       try { await Auth.signInWithGoogle(); } catch (e) { this.showAuthError('Google 로그인 실패'); }
+    });
+    document.getElementById('btn-forgot-pw').addEventListener('click', async () => {
+      const email = document.getElementById('login-email').value.trim();
+      if (!email) {
+        this.showAuthError('이메일을 먼저 입력해 주세요.');
+        return;
+      }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        this.showAuthError('');
+        const errEl = document.getElementById('auth-error');
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.style.color = 'var(--moss)';
+          errEl.textContent = '재설정 이메일을 보냈습니다. 받은편지함을 확인해 주세요.';
+        }
+      } catch(e) {
+        this.showAuthError('이메일 전송 실패. 가입된 이메일인지 확인해 주세요.');
+      }
     });
   },
 
@@ -2271,6 +2293,27 @@ const App = {
           <div id="pe-result" style="text-align:center;margin-top:12px;font-size:13px;display:none"></div>
         </div>
       </div>
+
+      <div class="section">
+        <div class="section-title">비밀번호 변경</div>
+        <div class="card">
+          <div class="form-group">
+            <label class="form-label">새 비밀번호</label>
+            <div style="position:relative">
+              <input type="password" id="pe-new-pw" class="form-input" placeholder="새 비밀번호 (6자 이상)" style="padding-right:44px" />
+              <button type="button" id="pe-toggle-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink-4);padding:4px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">새 비밀번호 확인</label>
+            <input type="password" id="pe-new-pw2" class="form-input" placeholder="비밀번호 재입력" />
+            <div id="pe-pw-hint" class="form-hint" style="display:none"></div>
+          </div>
+          <button class="btn btn-secondary w-full mt-8" id="btn-change-pw">비밀번호 변경</button>
+        </div>
+      </div>
     `;
     document.getElementById('btn-save-profile').addEventListener('click', async () => {
       const name = document.getElementById('pe-name').value.trim();
@@ -2294,6 +2337,55 @@ const App = {
       } catch(e) {
         App.showToast('저장 실패: ' + e.message);
         btn.textContent = '저장하기'; btn.disabled = false;
+      }
+    });
+
+    // 비밀번호 마스킹 토글
+    document.getElementById('pe-toggle-pw').addEventListener('click', () => {
+      const pw = document.getElementById('pe-new-pw');
+      pw.type = pw.type === 'text' ? 'password' : 'text';
+    });
+
+    // 비밀번호 확인 실시간 체크
+    document.getElementById('pe-new-pw2').addEventListener('input', () => {
+      const pw1 = document.getElementById('pe-new-pw').value;
+      const pw2 = document.getElementById('pe-new-pw2').value;
+      const hint = document.getElementById('pe-pw-hint');
+      if (!pw2) { hint.style.display = 'none'; return; }
+      hint.style.display = 'block';
+      if (pw1 === pw2) {
+        hint.style.color = 'var(--moss)';
+        hint.textContent = '✓ 비밀번호가 일치합니다';
+      } else {
+        hint.style.color = 'var(--rust)';
+        hint.textContent = '비밀번호가 일치하지 않습니다';
+      }
+    });
+
+    // 비밀번호 변경 처리
+    document.getElementById('btn-change-pw').addEventListener('click', async () => {
+      const pw1 = document.getElementById('pe-new-pw').value;
+      const pw2 = document.getElementById('pe-new-pw2').value;
+      if (!pw1) { App.showToast('새 비밀번호를 입력해 주세요'); return; }
+      if (pw1.length < 6) { App.showToast('비밀번호는 6자 이상이어야 합니다'); return; }
+      if (pw1 !== pw2) { App.showToast('비밀번호가 일치하지 않습니다'); return; }
+      const btn = document.getElementById('btn-change-pw');
+      btn.textContent = '변경 중...'; btn.disabled = true;
+      try {
+        await auth.currentUser.updatePassword(pw1);
+        App.showToast('비밀번호가 변경되었습니다!');
+        document.getElementById('pe-new-pw').value = '';
+        document.getElementById('pe-new-pw2').value = '';
+        btn.textContent = '비밀번호 변경';
+        btn.disabled = false;
+      } catch(e) {
+        if (e.code === 'auth/requires-recent-login') {
+          App.showToast('보안을 위해 로그아웃 후 다시 로그인하고 시도해 주세요');
+        } else {
+          App.showToast('변경 실패: ' + e.message);
+        }
+        btn.textContent = '비밀번호 변경';
+        btn.disabled = false;
       }
     });
   }
