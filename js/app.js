@@ -447,14 +447,14 @@ const App = {
         await DB.updateUserProfile(Auth.getUid(), {
           personId, saesu: personGen, daeson: personGen - 1
         });
-        this.userProfile.personId = personId;
-        this.userProfile.saesu = personGen;
-        this.clearInviteInfo();
+        App.userProfile.personId = personId;
+        App.userProfile.saesu = personGen;
+        App.clearInviteInfo();
         close();
-        this.showToast('"'+personName+'"으로 연결 완료!');
-        setTimeout(() => this.navigate('memorial'), 800);
+        App.showToast('"'+personName+'"으로 연결 완료!');
+        setTimeout(() => App.navigate('memorial'), 800);
       } catch(e) {
-        this.showToast('연결 실패: ' + e.message);
+        App.showToast('연결 실패: ' + e.message);
         btn.textContent = '본인입니다 · 연결하기'; btn.disabled = false;
       }
     });
@@ -552,14 +552,14 @@ const App = {
           linkedUid: Auth.getUid()
         });
         await DB.updateUserProfile(Auth.getUid(), { personId, saesu: myGen, daeson: myGen-1 });
-        this.userProfile.personId = personId;
-        this.userProfile.saesu = myGen;
-        this.clearInviteInfo();
+        App.userProfile.personId = personId;
+        App.userProfile.saesu = myGen;
+        App.clearInviteInfo();
         close();
-        this.showToast('"'+parentName+'"의 자녀로 연결 완료!');
-        setTimeout(() => this.navigate('memorial'), 800);
+        App.showToast('"'+parentName+'"의 자녀로 연결 완료!');
+        setTimeout(() => App.navigate('memorial'), 800);
       } catch(e) {
-        this.showToast('연결 실패: ' + e.message);
+        App.showToast('연결 실패: ' + e.message);
         btn.textContent = '연결하기'; btn.disabled = false;
       }
     });
