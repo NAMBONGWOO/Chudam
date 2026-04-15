@@ -276,15 +276,22 @@ const App = {
       <div id="auth-error" class="text-center mt-12" style="color:var(--rust);font-size:13px;display:none"></div>
     `;
     // 배우자 있음/없음 토글
+    // 배우자 상태를 data 속성으로 관리
     document.getElementById('sp-none-btn').addEventListener('click', () => {
-      document.getElementById('sp-none-btn').style.cssText += ';background:var(--moss);color:var(--paper)';
-      document.getElementById('sp-has-btn').style.cssText += ';background:var(--paper);color:var(--ink-3)';
+      document.getElementById('sp-none-btn').style.background = 'var(--moss)';
+      document.getElementById('sp-none-btn').style.color = 'var(--paper)';
+      document.getElementById('sp-has-btn').style.background = 'var(--paper)';
+      document.getElementById('sp-has-btn').style.color = 'var(--ink-3)';
       document.getElementById('spouse-fields').style.display = 'none';
+      document.getElementById('spouse-fields').dataset.active = '0';
     });
     document.getElementById('sp-has-btn').addEventListener('click', () => {
-      document.getElementById('sp-has-btn').style.cssText += ';background:var(--moss);color:var(--paper)';
-      document.getElementById('sp-none-btn').style.cssText += ';background:var(--paper);color:var(--ink-3)';
+      document.getElementById('sp-has-btn').style.background = 'var(--moss)';
+      document.getElementById('sp-has-btn').style.color = 'var(--paper)';
+      document.getElementById('sp-none-btn').style.background = 'var(--paper)';
+      document.getElementById('sp-none-btn').style.color = 'var(--ink-3)';
       document.getElementById('spouse-fields').style.display = '';
+      document.getElementById('spouse-fields').dataset.active = '1';
     });
 
     // 비밀번호 마스킹 토글
@@ -339,7 +346,10 @@ const App = {
         const spName   = document.getElementById('su-sp-name')?.value.trim();
         const spBirth  = parseInt(document.getElementById('su-sp-birth')?.value) || null;
         const spGender = document.getElementById('su-sp-gender')?.value || null;
-        const hasSpouse = document.getElementById('spouse-fields')?.style.display !== 'none' && spName;
+        // 배우자 있음 버튼이 활성화(moss 배경)되어 있고 이름이 있으면 등록
+        const spouseFieldEl = document.getElementById('spouse-fields');
+        const hasSpouse = spouseFieldEl?.dataset.active === '1' && !!spName;
+        console.log('hasSpouse:', hasSpouse, 'spName:', spName, 'active:', spouseFieldEl?.dataset.active);
 
         // 먼저 사용자 프로필 저장
         await DB.saveUserProfile(user.uid, {
@@ -354,15 +364,16 @@ const App = {
             const spouseId = await DB.savePerson({
               name: spName,
               birthYear: spBirth,
-              gender: spGender,
-              generation: null,  // 관리자가 나중에 세대 설정
+              gender: spGender || (gender === 'M' ? 'F' : 'M'), // 배우자는 반대 성별 자동
+              generation: null,
               parentId: null,
               rootAncestorId: null,
               bongwan: '',
               pa: '',
               addedByUid: user.uid,
-              isSpouseEntry: true  // 배우자로 등록된 임시 인물 표시
+              isSpouseEntry: true
             });
+            console.log('배우자 등록 완료:', spouseId);
             // userProfile에 spousePersonId 저장
             await DB.updateUserProfile(user.uid, { spousePersonId: spouseId });
           } catch(e) {
