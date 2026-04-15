@@ -129,13 +129,21 @@ const Tree = {
         parentGroups[key].push(p);
       });
 
-      // 각 그룹을 부모 위치 기준으로 배치
+      // 각 인물의 단위 너비 계산 (배우자 포함)
+      const unitW = (p) => {
+        if (p.spouseId && byId[p.spouseId]) {
+          return this.NODE_W + this.SPOUSE_GAP + this.SPOUSE_W;
+        }
+        return this.NODE_W;
+      };
+
+      // 각 그룹 너비 계산 (배우자 포함)
       let totalOffset = 0;
       const groupOffsets = [];
-
       Object.keys(parentGroups).forEach(pKey => {
         const siblings = parentGroups[pKey];
-        const groupW = siblings.length * (this.NODE_W + this.H_GAP) - this.H_GAP;
+        const groupW = siblings.reduce((sum, p, i) =>
+          sum + unitW(p) + (i < siblings.length - 1 ? this.H_GAP : 0), 0);
         groupOffsets.push({ pKey, siblings, groupW, startX: totalOffset });
         totalOffset += groupW + this.H_GAP * 3;
       });
@@ -145,24 +153,27 @@ const Tree = {
       const offsetX = -totalW / 2;
 
       groupOffsets.forEach(({ pKey, siblings, groupW, startX }) => {
-        const groupCenterX = offsetX + startX + groupW / 2;
-
-        // 부모 위치와 맞추기 (부모가 있으면)
         const parentPos = posMap[pKey];
-        const baseX = parentPos ? parentPos.x - groupW / 2 + (this.NODE_W / 2) : groupCenterX - groupW / 2 + this.NODE_W / 2;
+        // 부모 위치 기준 또는 중앙 정렬
+        let curX = parentPos
+          ? parentPos.x - groupW / 2 + unitW(siblings[0]) / 2
+          : offsetX + startX + unitW(siblings[0]) / 2;
 
-        siblings.forEach((p, i) => {
-          const x = (parentPos ? parentPos.x - (siblings.length - 1) * (this.NODE_W + this.H_GAP) / 2 : groupCenterX - groupW / 2 + this.NODE_W / 2) + i * (this.NODE_W + this.H_GAP);
+        siblings.forEach((p) => {
+          const x = curX;
           posMap[p.id] = { x, y };
           nodes.push({ ...p, ghost: false, x, y });
 
-          // 배우자 노드
+          // 배우자: 인물 바로 오른쪽, 형제와 겹치지 않게
           if (p.spouseId && byId[p.spouseId]) {
             const sp = byId[p.spouseId];
             const sx = x + this.NODE_W / 2 + this.SPOUSE_GAP + this.SPOUSE_W / 2;
             posMap[p.spouseId] = { x: sx, y: y + (this.NODE_H - this.SPOUSE_H) / 2 };
             nodes.push({ ...sp, ghost: false, isSpouse: true, x: sx, y: y + (this.NODE_H - this.SPOUSE_H) / 2 });
           }
+
+          // 다음 형제 위치: 현재 유닛 너비 + 간격
+          curX += unitW(p) + this.H_GAP;
         });
       });
     });
