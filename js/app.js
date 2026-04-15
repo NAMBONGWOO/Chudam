@@ -5,14 +5,22 @@ const App = {
   persons: [],
 
   async init() {
-    // 스플래시 → 앱 전환
-    setTimeout(() => {
-      document.getElementById('splash-screen').classList.add('fade-out');
+    // 스플래시: 첫 방문(탭 세션)에만 표시
+    const alreadyVisited = sessionStorage.getItem('splashShown');
+    if (alreadyVisited) {
+      // 새로고침 시 스플래시 스킵
+      document.getElementById('splash-screen').style.display = 'none';
+      document.getElementById('main-app').classList.remove('hidden');
+    } else {
+      sessionStorage.setItem('splashShown', '1');
       setTimeout(() => {
-        document.getElementById('splash-screen').style.display = 'none';
-        document.getElementById('main-app').classList.remove('hidden');
-      }, 600);
-    }, 1800);
+        document.getElementById('splash-screen').classList.add('fade-out');
+        setTimeout(() => {
+          document.getElementById('splash-screen').style.display = 'none';
+          document.getElementById('main-app').classList.remove('hidden');
+        }, 600);
+      }, 1800);
+    }
 
     // 초대 링크 파라미터 확인
     this.checkInviteParam();
@@ -174,9 +182,19 @@ const App = {
         <label class="form-label">성명 <span class="required">*</span></label>
         <input type="text" id="su-name" class="form-input" placeholder="예) 남○○" autocomplete="name" />
       </div>
-      <div class="form-group">
+      <div class="form-row">
+        <div class="form-group">
           <label class="form-label">출생연도 <span class="required">*</span></label>
           <input type="number" id="su-birthyear" class="form-input" placeholder="예) 1975" min="1900" max="2025" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">성별 <span class="required">*</span></label>
+          <select id="su-gender" class="form-select">
+            <option value="">선택</option>
+            <option value="M">남성</option>
+            <option value="F">여성</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">이메일 <span class="required">*</span></label>
@@ -201,9 +219,53 @@ const App = {
         </div>
         <div id="pw-match-hint" class="form-hint" style="display:none"></div>
       </div>
+      <!-- 배우자 정보 -->
+      <div style="margin-top:16px;padding-top:16px;border-top:0.5px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <label style="font-size:13px;color:var(--ink-2);font-weight:500">배우자</label>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="spouse-toggle-btn active" id="sp-none-btn"
+              style="font-size:12px;padding:4px 12px;border-radius:20px;border:0.5px solid var(--border-strong);background:var(--moss);color:var(--paper);cursor:pointer">없음</button>
+            <button type="button" class="spouse-toggle-btn" id="sp-has-btn"
+              style="font-size:12px;padding:4px 12px;border-radius:20px;border:0.5px solid var(--border-strong);background:var(--paper);color:var(--ink-3);cursor:pointer">있음</button>
+          </div>
+        </div>
+        <div id="spouse-fields" style="display:none">
+          <div class="form-group">
+            <label class="form-label">배우자 성함 <span class="required">*</span></label>
+            <input type="text" id="su-sp-name" class="form-input" placeholder="예) 김○○" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">배우자 출생연도</label>
+              <input type="number" id="su-sp-birth" class="form-input" placeholder="예) 1977" min="1900" max="2025" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">배우자 성별</label>
+              <select id="su-sp-gender" class="form-select">
+                <option value="">선택</option>
+                <option value="M">남성</option>
+                <option value="F">여성</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
       <button class="btn btn-primary mt-16" id="btn-signup">가입하기</button>
       <div id="auth-error" class="text-center mt-12" style="color:var(--rust);font-size:13px;display:none"></div>
     `;
+    // 배우자 있음/없음 토글
+    document.getElementById('sp-none-btn').addEventListener('click', () => {
+      document.getElementById('sp-none-btn').style.cssText += ';background:var(--moss);color:var(--paper)';
+      document.getElementById('sp-has-btn').style.cssText += ';background:var(--paper);color:var(--ink-3)';
+      document.getElementById('spouse-fields').style.display = 'none';
+    });
+    document.getElementById('sp-has-btn').addEventListener('click', () => {
+      document.getElementById('sp-has-btn').style.cssText += ';background:var(--moss);color:var(--paper)';
+      document.getElementById('sp-none-btn').style.cssText += ';background:var(--paper);color:var(--ink-3)';
+      document.getElementById('spouse-fields').style.display = '';
+    });
+
     // 비밀번호 마스킹 토글
     const togglePw = (inputId, eyeId) => {
       const el = document.getElementById(inputId);
@@ -234,12 +296,13 @@ const App = {
     document.getElementById('su-pw2').addEventListener('input', checkMatch);
 
     document.getElementById('btn-signup').addEventListener('click', async () => {
-      const name    = document.getElementById('su-name').value.trim();
+      const name      = document.getElementById('su-name').value.trim();
       const birthYear = parseInt(document.getElementById('su-birthyear').value) || 0;
-      const email   = document.getElementById('su-email').value.trim();
-      const pw      = document.getElementById('su-pw').value;
-      const pw2     = document.getElementById('su-pw2').value;
-      if (!name || !birthYear || !email || !pw) {
+      const gender    = document.getElementById('su-gender').value;
+      const email     = document.getElementById('su-email').value.trim();
+      const pw        = document.getElementById('su-pw').value;
+      const pw2       = document.getElementById('su-pw2').value;
+      if (!name || !birthYear || !gender || !email || !pw) {
         this.showAuthError('모든 항목을 입력해 주세요.'); return;
       }
       if (pw !== pw2) {
@@ -251,11 +314,40 @@ const App = {
       try {
         document.getElementById('btn-signup').textContent = '처리 중...';
         const user = await Auth.signUp(email, pw, name);
+        // 배우자 정보 등록
+        const spName   = document.getElementById('su-sp-name')?.value.trim();
+        const spBirth  = parseInt(document.getElementById('su-sp-birth')?.value) || null;
+        const spGender = document.getElementById('su-sp-gender')?.value || null;
+        const hasSpouse = document.getElementById('spouse-fields')?.style.display !== 'none' && spName;
+
+        // 먼저 사용자 프로필 저장
         await DB.saveUserProfile(user.uid, {
-          name, birthYear,
+          name, birthYear, gender,
           bongwan: '의령', pa: '사천백파', email,
           role: 'member', createdAt: new Date().toISOString()
         });
+
+        // 배우자가 있으면 persons에 자동 등록 (연결은 나중에 "내 이름 찾기"에서)
+        if (hasSpouse) {
+          try {
+            const spouseId = await DB.savePerson({
+              name: spName,
+              birthYear: spBirth,
+              gender: spGender,
+              generation: null,  // 관리자가 나중에 세대 설정
+              parentId: null,
+              rootAncestorId: null,
+              bongwan: '',
+              pa: '',
+              addedByUid: user.uid,
+              isSpouseEntry: true  // 배우자로 등록된 임시 인물 표시
+            });
+            // userProfile에 spousePersonId 저장
+            await DB.updateUserProfile(user.uid, { spousePersonId: spouseId });
+          } catch(e) {
+            console.warn('배우자 등록 실패:', e.message);
+          }
+        }
       } catch (e) {
         this.showAuthError(e.message || '회원가입에 실패했습니다.');
         document.getElementById('btn-signup').textContent = '가입하기';
@@ -449,6 +541,24 @@ const App = {
         });
         App.userProfile.personId = personId;
         App.userProfile.saesu = personGen;
+
+        // 가입 시 등록한 배우자가 있으면 자동 연결
+        const spousePersonId = App.userProfile?.spousePersonId;
+        if (spousePersonId) {
+          try {
+            // 배우자 person에 generation, parentId 설정 (내 세대와 같음)
+            await DB.updatePerson(spousePersonId, {
+              generation: personGen,
+              rootAncestorId: updateData.rootAncestorId || me?.rootAncestorId || null,
+              spouseId: personId
+            });
+            // 나의 person에도 spouseId 연결
+            await DB.updatePerson(personId, { spouseId: spousePersonId });
+          } catch(e) {
+            console.warn('배우자 자동 연결 실패:', e.message);
+          }
+        }
+
         App.clearInviteInfo();
         close();
         App.showToast('"'+personName+'"으로 연결 완료!');
