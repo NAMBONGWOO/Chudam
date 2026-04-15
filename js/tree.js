@@ -47,12 +47,18 @@ const Tree = {
         childrenOf[pid].push(p.id);
       });
     });
+    // 배우자 ID 맵 (id → spouseId)
+    const spouseMap = {};
+    persons.forEach(p => { if (p.spouseId) spouseMap[p.id] = p.spouseId; });
+
     const hiddenIds = new Set();
     this.collapsed.forEach(cId => {
       const queue = [...(childrenOf[cId] || [])];
       while (queue.length) {
         const id = queue.shift();
         hiddenIds.add(id);
+        // 배우자도 함께 숨김
+        if (spouseMap[id]) hiddenIds.add(spouseMap[id]);
         if (childrenOf[id]) queue.push(...childrenOf[id]);
       }
     });
@@ -404,15 +410,18 @@ const Tree = {
     const ctrlBar = document.createElement('div');
     ctrlBar.className = 'tree-ctrl-bar';
     ctrlBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:var(--paper);border-bottom:0.5px solid var(--border);position:sticky;top:0;z-index:10;';
-    ctrlBar.innerHTML = '<span style="font-size:11px;color:var(--ink-4)">'
-      + (this.showLineageOnly ? '직계 모드' : '방계 모드') + '</span>'
-      + '<div style="display:flex;gap:6px">'
-      + (this.collapsed.size > 0 ? '<button id="tree-expand-all" style="font-size:11px;padding:4px 10px;background:var(--paper);border:0.5px solid var(--border-strong);border-radius:20px;color:var(--ink-3);cursor:pointer;font-family:var(--font-sans)">모두 펼치기</button>' : '')
-      + '<button id="tree-toggle-btn" style="font-size:11px;padding:4px 12px;background:'
-      + (this.showLineageOnly ? 'var(--moss);color:var(--paper)' : 'var(--paper);color:var(--moss)')
-      + ';border:0.5px solid var(--moss);border-radius:20px;cursor:pointer;font-family:var(--font-sans)">'
-      + (this.showLineageOnly ? '방계 모드' : '직계 모드') + '</button>'
-      + '</div>';
+    // 단일 토글 버튼: 현재 모드 → 클릭시 반대 모드로
+    const modeLabel = this.showLineageOnly ? '직계 모드' : '방계 모드';
+    const modeIcon  = this.showLineageOnly ? '⬆' : '⬇';
+    ctrlBar.innerHTML = '<div style="display:flex;gap:6px;align-items:center">'
+      + (this.collapsed.size > 0
+          ? '<button id="tree-expand-all" style="font-size:10px;padding:3px 9px;background:var(--paper-2);border:0.5px solid var(--border-strong);border-radius:20px;color:var(--ink-3);cursor:pointer;font-family:var(--font-sans)">모두 펼치기</button>'
+          : '')
+      + '</div>'
+      + '<button id="tree-toggle-btn" style="font-size:11px;padding:4px 14px;background:var(--moss);color:var(--paper);border:none;border-radius:20px;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;gap:5px">'
+      + '<span>' + modeLabel + '</span>'
+      + '<span style="font-size:9px;opacity:0.7">전환</span>'
+      + '</button>';
 
     container.innerHTML = '';
     container.appendChild(ctrlBar);

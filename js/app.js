@@ -1621,6 +1621,10 @@ const App = {
         <input type="text" id="ep-jesa" class="form-input" value="${person.jesaDate || ''}" placeholder="예) 음력 3월 15일" />
       </div>
       <div class="form-group">
+        <label class="form-label">생애 기록 <span style="font-size:11px;color:var(--ink-4)">(공적·훈언·약력 등)</span></label>
+        <textarea id="ep-bio" class="form-input" rows="4" placeholder="예) 조선 중기의 문신으로 임진왜란 당시 의병을 일으켰다..." style="resize:vertical;min-height:80px">${person.biography || ''}</textarea>
+      </div>
+      <div class="form-group">
         <label class="form-label">성별</label>
         <select id="ep-gender" class="form-select">
           <option value=""${!person.gender?' selected':''}>선택 안 함</option>
@@ -1690,6 +1694,7 @@ const App = {
         const gender = document.getElementById('ep-gender')?.value || null;
         if (spouseId) updatedData.spouseId = spouseId;
         if (gender) updatedData.gender = gender;
+        updatedData.biography = document.getElementById('ep-bio')?.value.trim() || null;
         await DB.updatePerson(personId, updatedData);
         // 배우자도 역방향 연결
         if (spouseId) await DB.updatePerson(spouseId, { spouseId: personId });
@@ -2068,6 +2073,7 @@ const App = {
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--ink-2)">'+(person.generation||'?')+'세</span><span>'+(yr?yr+'년':'')+(dy?'~'+dy:'')+'</span></div>'
       + (person.memorialLocation?'<div style="color:var(--moss)">'+person.memorialLocation+'</div>':'')
       + (person.jesaDate?'<div>기제사: '+person.jesaDate+'</div>':'')
+      + (person.biography?'<div style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);font-size:11px;color:var(--ink-2);line-height:1.6">'+person.biography+'</div>':'')
       + '</div>';
     document.body.appendChild(popup);
     popup.querySelector('#pp-close').addEventListener('click', () => popup.remove());
