@@ -537,21 +537,31 @@ const App = {
         const allPersons = await DB.getAllPersons(200);
         const parent = allPersons.find(p => p.id === parentId);
         const rootAncestorId = parent?.rootAncestorId || parentId;
-        const myNameSafe = this.userProfile?.name || Auth.currentUser?.displayName || '이름미입력';
+        const myNameSafe = App.userProfile?.name || Auth.currentUser?.displayName || '이름미입력';
         if (!myNameSafe || myNameSafe === '이름미입력') {
           throw new Error('이름 정보가 없습니다. 마이페이지에서 이름을 먼저 입력해 주세요.');
         }
-        const personId = await DB.savePerson({
-          name: myNameSafe,
-          generation: myGen,
-          birthYear: this.userProfile?.birthYear || null,
-          parentId, rootAncestorId,
-          bongwan: this.userProfile?.bongwan || '의령',
-          pa: this.userProfile?.pa || '사천백파',
-          addedByUid: Auth.getUid(),
-          linkedUid: Auth.getUid()
-        });
-        await DB.updateUserProfile(Auth.getUid(), { personId, saesu: myGen, daeson: myGen-1 });
+        // 이미 같은 UID로 연결된 person이 있으면 중복 생성 방지
+        const myUid = Auth.getUid();
+        const existing = allPersons.find(p => p.linkedUid === myUid);
+        let personId;
+        if (existing) {
+          // 이미 있으면 그걸 재사용
+          personId = existing.id;
+          await DB.updatePerson(personId, { parentId, rootAncestorId });
+        } else {
+          personId = await DB.savePerson({
+            name: myNameSafe,
+            generation: myGen,
+            birthYear: App.userProfile?.birthYear || null,
+            parentId, rootAncestorId,
+            bongwan: App.userProfile?.bongwan || '의령',
+            pa: App.userProfile?.pa || '사천백파',
+            addedByUid: myUid,
+            linkedUid: myUid
+          });
+        }
+        await DB.updateUserProfile(myUid, { personId, saesu: myGen, daeson: myGen-1 });
         App.userProfile.personId = personId;
         App.userProfile.saesu = myGen;
         App.clearInviteInfo();
