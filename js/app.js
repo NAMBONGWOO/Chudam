@@ -55,7 +55,11 @@ const App = {
   },
 
   onLogin(user) {
-    this.loadUserData(user.uid).then(() => {
+    this.loadUserData(user.uid).then(async () => {
+      // userProfile 로드 실패 시 재시도
+      if (!this.userProfile) {
+        this.userProfile = await DB.getUserProfile(user.uid);
+      }
       const pid = this.userProfile?.personId;
       if (!pid || pid === 'null' || pid === '') {
         this.renderLinkToTree();
@@ -508,7 +512,12 @@ const App = {
 
   // 본인 노드 직접 선택 → personId 연결
   async confirmSelfLink(personId, personName, personGen) {
-    const myName = this.userProfile?.name || '나';
+    // userProfile이 null이면 먼저 로드
+    if (!App.userProfile) {
+      const uid = Auth.getUid();
+      if (uid) App.userProfile = await DB.getUserProfile(uid);
+    }
+    const myName = App.userProfile?.name || '나';
     const nameMatch = (personName||'').includes(myName) || (myName||'').includes(personName||'');
 
     const overlay = document.createElement('div');
@@ -635,6 +644,11 @@ const App = {
 
   // 아버지 선택 → 새 person 생성 (persons에 본인이 없는 경우에만)
   async confirmParentLink(parentId, parentName, parentGen) {
+    // userProfile이 null이면 먼저 로드
+    if (!App.userProfile) {
+      const uid = Auth.getUid();
+      if (uid) App.userProfile = await DB.getUserProfile(uid);
+    }
     const myName = App.userProfile?.name || '나';
     const myGen = parentGen + 1;
 
