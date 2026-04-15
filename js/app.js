@@ -197,8 +197,7 @@ const App = {
   renderSignupForm() {
     document.getElementById('auth-form-area').innerHTML = `
       <div style="background:var(--moss-pale);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--moss);line-height:1.6">
-        추담 남석하 할아버지의 후손이시면 가입해 주세요.<br/>
-        <span style="color:var(--ink-3)">본관·파는 가입 후 관리자가 연결해 드립니다.</span>
+        추담 남석하 할아버지의 후손이시면 가입해 주세요.
       </div>
       <div class="form-group">
         <label class="form-label">성명 <span class="required">*</span></label>
@@ -625,7 +624,7 @@ const App = {
 
   // 아버지 선택 → 새 person 생성 (persons에 본인이 없는 경우에만)
   async confirmParentLink(parentId, parentName, parentGen) {
-    const myName = this.userProfile?.name || '나';
+    const myName = App.userProfile?.name || '나';
     const myGen = parentGen + 1;
 
     const overlay = document.createElement('div');
